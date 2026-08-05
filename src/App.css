@@ -1314,3 +1314,1301 @@ body {
     display: flex;
     align-items: center;
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+/* ============================================================
+   VISTA ROL — LIQUID GLASS OSCURO
+   Fondo oscuro teal (#127487 -> negro), panel de vidrio que
+   pega hasta el fondo de la pantalla (bordes redondeados solo
+   arriba), con resplandores blancos a los lados y bordes que
+   captan la luz.
+   ============================================================ */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+.glass-rol-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  /* Fondo oscuro basado en #127487: resplandor teal arriba/abajo-izq,
+     degradando a casi negro en los bordes. */
+  background:
+    radial-gradient(60% 45% at 50% 0%, rgba(18, 116, 135, 0.45) 0%, rgba(18, 116, 135, 0) 70%),
+    radial-gradient(75% 55% at 10% 100%, rgba(18, 116, 135, 0.22) 0%, rgba(18, 116, 135, 0) 70%),
+    linear-gradient(180deg, #0a2129 0%, #071720 45%, #030c10 100%);
+}
+
+/* --- Resplandores blancos redondos a los lados del panel --- */
+.glass-rol-blob {
+  position: absolute;
+  top: 50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+  transform: translateY(-50%);
+}
+
+.blob-superior {
+  left: 4%;
+  width: 34vw;
+  height: 34vw;
+  max-width: 320px;
+  max-height: 320px;
+  animation: glass-float 16s ease-in-out infinite;
+}
+
+.blob-inferior {
+  right: 4%;
+  width: 30vw;
+  height: 30vw;
+  max-width: 280px;
+  max-height: 280px;
+  animation: glass-float 20s ease-in-out infinite reverse;
+}
+
+@keyframes glass-float {
+  0%, 100% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-53%) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-rol-blob { animation: none; }
+}
+
+/* --- Botón cerrar (X) --- */
+.glass-rol-close {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  right: 20px;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.1rem;
+  border-radius: 50%;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.2s ease;
+}
+
+.glass-rol-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+/* --- Wrapper: ocupa toda la altura para que el panel pueda llegar
+   hasta el borde inferior real de la pantalla --- */
+.glass-rol-wrapper {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Panel de vidrio: ahora SOLO envuelve los botones (ya no el
+   logo/wordmark), así que no necesita estirarse a toda la altura.
+   Sigue pegado hasta abajo de la pantalla porque el hero de arriba
+   ocupa todo el espacio restante con flex:1. --- */
+.glass-rol-panel {
+  flex: none;
+  width: 100%;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.02) 45%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(38px) saturate(160%) brightness(1.08);
+  -webkit-backdrop-filter: blur(38px) saturate(160%) brightness(1.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-bottom: none;
+  border-radius: 32px 32px 0 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 -20px 60px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(18, 116, 135, 0.3);
+  overflow: hidden;
+}
+
+/* --- Hero: logo + wordmark + tagline, FUERA del panel, flotando
+   directo sobre el fondo. Ocupa todo el espacio libre arriba del
+   panel (flex:1), empujándolo hasta el borde inferior. --- */
+.glass-rol-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.glass-rol-logo {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  margin-bottom: 0.75rem;
+  filter: drop-shadow(0 4px 14px rgba(255, 255, 255, 0.25));
+}
+
+.glass-rol-wordmark {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 1.85rem;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.2);
+}
+
+.wm-inter,
+.wm-market {
+  color: #f5f7fa;
+}
+
+.glass-rol-tagline {
+  margin: 0.4rem 0 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* --- Zona de botones: sin fondo propio, es parte del mismo panel --- */
+.glass-rol-card {
+  position: relative;
+  background: transparent;
+  padding: 2rem 1.75rem calc(2.25rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* --- Botones liquid glass --- */
+.glass-rol-btn {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  min-height: 56px;
+  border-radius: 100px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: background 0.35s cubic-bezier(0.19, 1, 0.22, 1),
+    border-color 0.35s cubic-bezier(0.19, 1, 0.22, 1),
+    box-shadow 0.35s cubic-bezier(0.19, 1, 0.22, 1),
+    color 0.3s ease,
+    transform 0.25s ease;
+}
+
+.glass-rol-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Brillo especular sutil (reflejo puntual, no un overlay que cubre todo) */
+.glass-rol-btn-sheen {
+  position: absolute;
+  top: -25%;
+  left: 8%;
+  width: 55%;
+  height: 65%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  filter: blur(4px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.glass-rol-btn-arrow {
+  font-size: 0.95rem;
+  color: inherit;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Estado "activo": pastilla de vidrio clara sobre el panel oscuro,
+   con texto oscuro para contraste. Solo un botón activo a la vez. */
+.glass-rol-btn.is-active {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border-color: rgba(255, 255, 255, 0.75);
+  color: #12202a;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.8),
+    0 12px 28px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+.glass-rol-btn.is-active .glass-rol-btn-sheen {
+  opacity: 1;
+}
+
+.glass-rol-btn.is-active .glass-rol-btn-arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* Estado "inactivo": texto claro plano, sin borde ni flecha */
+.glass-rol-btn.is-inactive {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.glass-rol-stats {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+}
+
+/* Foco visible (accesibilidad de teclado) */
+.glass-rol-close:focus-visible,
+.glass-rol-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   DESKTOP / TABLET — el mismo panel, centrado y con ancho
+   limitado, pero sigue pegado hasta abajo de la pantalla.
+   ============================================================ */
+@media (min-width: 768px) {
+  .glass-rol-wrapper {
+    align-items: center;
+    padding: 4rem 1.5rem 0;
+  }
+
+  .glass-rol-panel {
+    max-width: 460px;
+    min-height: 48vh;
+    border-radius: 40px 40px 0 0;
+  }
+
+  .glass-rol-hero {
+    width: 100%;
+    max-width: 460px;
+    padding: 0 2.5rem 1.5rem;
+  }
+
+  .glass-rol-logo {
+    width: 64px;
+    height: 64px;
+  }
+
+  .glass-rol-wordmark {
+    font-size: 2.2rem;
+  }
+
+  .glass-rol-tagline {
+    font-size: 0.88rem;
+  }
+
+  .glass-rol-card {
+    padding: 2.75rem 2.5rem calc(2.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 1200px) {
+  .glass-rol-panel {
+    max-width: 480px;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+/* ============================================================
+   SUSCRIPCION — LIQUID GLASS OSCURO
+   Mismo fondo, mismos resplandores y mismo material de vidrio
+   que VistaRol.css (panel/tarjetas translúcidas oscuras,
+   botones con pastilla de vidrio clara al activarse).
+   ============================================================ */
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+.susc-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+
+  /* Mismo fondo oscuro que VistaRol, basado en #127487 */
+  background:
+    radial-gradient(60% 45% at 50% 0%, rgba(18, 116, 135, 0.45) 0%, rgba(18, 116, 135, 0) 70%),
+    radial-gradient(75% 55% at 10% 100%, rgba(18, 116, 135, 0.22) 0%, rgba(18, 116, 135, 0) 70%),
+    linear-gradient(180deg, #0a2129 0%, #071720 45%, #030c10 100%);
+}
+
+/* --- Resplandores blancos redondos a los lados (igual que VistaRol) --- */
+.susc-blob {
+  position: absolute;
+  top: 50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 70%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: 0;
+  transform: translateY(-50%);
+}
+
+.blob-a {
+  left: 4%;
+  width: 34vw;
+  height: 34vw;
+  max-width: 320px;
+  max-height: 320px;
+  animation: susc-float 16s ease-in-out infinite;
+}
+
+.blob-b {
+  right: 4%;
+  width: 30vw;
+  height: 30vw;
+  max-width: 280px;
+  max-height: 280px;
+  animation: susc-float 20s ease-in-out infinite reverse;
+}
+
+@keyframes susc-float {
+  0%, 100% { transform: translateY(-50%) scale(1); }
+  50% { transform: translateY(-53%) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .susc-blob { animation: none; }
+}
+
+/* --- Wrapper --- */
+.susc-wrapper {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 480px;
+  padding: 3rem 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* --- Encabezado (texto claro sobre fondo oscuro) --- */
+.susc-header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.susc-title {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 1.9rem;
+  letter-spacing: -0.5px;
+  color: #f5f7fa;
+  margin: 0 0 0.4rem;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.18);
+}
+
+.susc-subtitle {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin: 0;
+}
+
+/* --- Alerta de error --- */
+.susc-alert {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 120, 120, 0.4);
+  color: #ffb3b3;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: 16px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* --- Tarjetas de plan — mismo material de vidrio oscuro que el
+   panel de VistaRol: translúcidas, dejan ver el fondo, borde que
+   capta la luz. --- */
+.susc-planes {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.susc-plan-card {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.02) 45%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(30px) saturate(160%) brightness(1.06);
+  -webkit-backdrop-filter: blur(30px) saturate(160%) brightness(1.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 24px;
+  padding: 1.1rem 1.3rem;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 12px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s cubic-bezier(0.19, 1, 0.22, 1),
+    box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+}
+
+.susc-plan-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.susc-plan-card:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.susc-plan-card.is-selected {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 0 0 2px rgba(129, 221, 229, 0.45),
+    0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.susc-badge-popular {
+  position: absolute;
+  top: -11px;
+  right: 18px;
+  background: var(--color-secundario, #81dde5);
+  color: #0c333b;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 0.2px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.susc-plan-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.susc-plan-nombre {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #f5f7fa;
+}
+
+.susc-plan-precio {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #8be9f0;
+  white-space: nowrap;
+}
+
+.susc-plan-precio small {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 2px;
+}
+
+.susc-plan-desc {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+  padding-right: 1.6rem;
+}
+
+.susc-plan-check {
+  position: absolute;
+  bottom: 1.1rem;
+  right: 1.1rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #12202a;
+  background: #f5f7fa;
+  font-size: 0.75rem;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.susc-plan-card.is-selected .susc-plan-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* --- Botones de acción — material de vidrio idéntico a VistaRol --- */
+.susc-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.susc-btn {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  min-height: 56px;
+  border-radius: 100px;
+  border: 1px solid transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  transition: background 0.35s cubic-bezier(0.19, 1, 0.22, 1),
+    border-color 0.35s cubic-bezier(0.19, 1, 0.22, 1),
+    box-shadow 0.35s cubic-bezier(0.19, 1, 0.22, 1),
+    color 0.3s ease,
+    transform 0.25s ease;
+}
+
+.susc-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Brillo especular sutil (reflejo puntual, no un overlay total) */
+.susc-btn-sheen {
+  position: absolute;
+  top: -25%;
+  left: 8%;
+  width: 55%;
+  height: 65%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0) 72%
+  );
+  filter: blur(4px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.susc-btn.is-active {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-color: rgba(255, 255, 255, 0.95);
+  color: #12202a;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 12px 28px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+.susc-btn.is-active .susc-btn-sheen {
+  opacity: 1;
+}
+
+.susc-btn.is-inactive {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.susc-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.susc-btn-secondary {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+/* ============================================================
+   DESKTOP / TABLET
+   ============================================================ */
+@media (min-width: 768px) {
+  .susc-wrapper {
+    max-width: 900px;
+    padding: 4.5rem 2rem 3rem;
+  }
+
+  .susc-title {
+    font-size: 2.5rem;
+  }
+
+  .susc-subtitle {
+    font-size: 1.05rem;
+  }
+
+  .susc-planes {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 1.25rem;
+  }
+
+  .susc-plan-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem 1.5rem 2.5rem;
+  }
+
+  .susc-plan-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+
+  .susc-plan-desc {
+    padding-right: 0;
+  }
+
+  .susc-actions {
+    flex-direction: row;
+    justify-content: center;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .susc-btn {
+    max-width: 220px;
+  }
+
+  .susc-btn-primary {
+    max-width: 260px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .susc-wrapper {
+    max-width: 1040px;
+  }
+}
+
+
+/*Carrito Styles*/
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+/* ============================================================
+   CARRITO — LIQUID GLASS SOBRE FONDO BLANCO
+   Tarjetas de producto en vidrio translúcido con borde brillante
+   reflectante, fondo blanco, título "Carrito (N)" en #0D5D6E.
+   Pantalla completa en móvil (Modal fullscreen="md-down"),
+   modal normal en laptop/desktop.
+   ============================================================ */
+
+:root {
+  --cg-primario: #0d5d6e;
+  --cg-primario-oscuro: #08404c;
+}
+
+/* --- Contenedor del modal --- */
+.cg-content {
+  background: #ffffff !important;
+  border: none !important;
+  border-radius: 28px !important;
+  overflow: hidden;
+}
+
+.cg-modal.modal.fullscreen .cg-content,
+.cg-content.modal-fullscreen {
+  border-radius: 0 !important;
+}
+
+/* --- Header --- */
+.cg-header {
+  border: none !important;
+  padding: 1.5rem 1.5rem 0.5rem !important;
+  background: #ffffff;
+}
+
+.cg-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.cg-title {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+
+.cg-title-word,
+.cg-title-count {
+  color: var(--cg-primario);
+}
+
+.cg-clear-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(13, 93, 110, 0.15);
+  background: rgba(13, 93, 110, 0.06);
+  color: var(--cg-primario);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+  margin-right: 2.25rem; /* deja espacio a la X de cierre de bootstrap */
+}
+
+.cg-clear-btn:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  transform: scale(1.05);
+}
+
+/* --- Body --- */
+.cg-body {
+  background: #ffffff;
+  padding: 0.5rem 1.25rem 1rem !important;
+}
+
+/* --- Estado vacío --- */
+.cg-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.cg-empty-icon {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 1.25rem;
+  border-radius: 50%;
+  background: rgba(13, 93, 110, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: var(--cg-primario);
+}
+
+.cg-empty-title {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  color: #17222b;
+}
+
+.cg-empty-text {
+  color: #6b7885;
+  margin-bottom: 1.5rem;
+}
+
+.cg-empty-btn {
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+/* --- Lista de items --- */
+.cg-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Tarjeta de producto: vidrio translúcido, borde brillante que
+   "refleja" el fondo (blanco), inspirado en liquid glass. */
+.cg-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem;
+  border-radius: 26px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(180, 230, 238, 0.4) 45%, rgba(255, 255, 255, 0.6) 100%);
+  backdrop-filter: blur(24px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 1),
+    inset 0 -8px 16px rgba(13, 93, 110, 0.05),
+    0 14px 30px rgba(13, 93, 110, 0.16),
+    0 0 0 1px rgba(13, 93, 110, 0.06);
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.cg-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 1),
+    inset 0 -8px 16px rgba(13, 93, 110, 0.05),
+    0 18px 38px rgba(13, 93, 110, 0.22),
+    0 0 0 1px rgba(13, 93, 110, 0.08);
+}
+
+/* brillo especular sutil, como en VistaRol/Suscripcion */
+.cg-item-sheen {
+  position: absolute;
+  top: -35%;
+  left: 4%;
+  width: 55%;
+  height: 75%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 70%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.cg-item-img-wrap {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #f1f5f9;
+  box-shadow: 0 2px 8px rgba(13, 93, 110, 0.12);
+}
+
+.cg-item-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cg-item-img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 1.4rem;
+}
+
+.cg-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cg-item-name {
+  margin: 0 0 0.25rem;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #17222b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cg-item-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.cg-variant-select {
+  font-size: 0.68rem !important;
+  padding: 0.15rem 0.5rem !important;
+  height: 24px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(13, 93, 110, 0.15) !important;
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  color: #375057 !important;
+  width: auto !important;
+  min-width: 90px;
+}
+
+.cg-item-prices {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.cg-item-price {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--cg-primario);
+}
+
+.cg-item-price-old {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.cg-item-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.cg-item-delete {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #b0bcc7;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.cg-item-delete:hover {
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.08);
+}
+
+.cg-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(13, 93, 110, 0.08);
+  border-radius: 100px;
+  padding: 0.2rem;
+}
+
+.cg-stepper-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #ffffff;
+  color: var(--cg-primario);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  box-shadow: 0 1px 3px rgba(13, 93, 110, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.cg-stepper-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cg-stepper-btn:not(:disabled):hover {
+  transform: scale(1.08);
+}
+
+.cg-stepper-value {
+  min-width: 18px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #17222b;
+}
+
+/* --- Footer: dirección + resumen + confirmar --- */
+.cg-footer {
+  background: #ffffff;
+  padding: 0.5rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.cg-direccion {
+  border-radius: 18px;
+  border: 1px solid rgba(13, 93, 110, 0.12);
+  background: rgba(13, 93, 110, 0.04);
+  padding: 0.75rem 1rem;
+}
+
+.cg-direccion-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--cg-primario);
+  margin-bottom: 0.4rem;
+}
+
+.cg-direccion-select {
+  border-radius: 10px !important;
+  border: 1px solid rgba(13, 93, 110, 0.15) !important;
+  font-size: 0.85rem !important;
+  background-color: #fff !important;
+}
+
+.cg-direccion-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #8a6d1a;
+}
+
+.cg-direccion-config-btn {
+  border: none;
+  background: var(--cg-primario);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 100px;
+  flex-shrink: 0;
+}
+
+/* Resumen de compra: tarjeta rosa/blush translúcida, como en la referencia */
+.cg-summary {
+  position: relative;
+  border-radius: 22px;
+  padding: 1.1rem 1.3rem;
+  background: linear-gradient(135deg, rgba(252, 231, 236, 0.85) 0%, rgba(255, 255, 255, 0.7) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 10px 24px rgba(13, 93, 110, 0.08);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cg-summary-sheen {
+  position: absolute;
+  top: -35%;
+  right: 5%;
+  width: 40%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 72%);
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.cg-summary-title {
+  margin: 0 0 0.6rem;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #7a3b52;
+}
+
+.cg-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--cg-primario);
+  font-weight: 600;
+  padding: 0.2rem 0;
+}
+
+.cg-summary-free {
+  color: #1a9d5c;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.cg-summary-divider {
+  height: 1px;
+  background: rgba(13, 93, 110, 0.15);
+  margin: 0.5rem 0;
+}
+
+.cg-summary-total {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--cg-primario-oscuro);
+}
+
+/* --- Botón Confirmar compra: teal sólido + brillo de vidrio encima --- */
+.cg-confirm-btn {
+  position: relative;
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 100px;
+  background: linear-gradient(160deg, #12768c 0%, var(--cg-primario) 45%, var(--cg-primario-oscuro) 100%);
+  color: #ffffff;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.12),
+    0 12px 28px rgba(13, 93, 110, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cg-confirm-sheen {
+  position: absolute;
+  top: -60%;
+  left: 4%;
+  width: 45%;
+  height: 140%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 70%);
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.cg-confirm-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.12),
+    0 16px 34px rgba(13, 93, 110, 0.42);
+}
+
+.cg-confirm-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.cg-seguir-btn {
+  background: none;
+  border: none;
+  color: #8a97a3;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+.cg-seguir-btn:hover {
+  color: var(--cg-primario);
+  text-decoration: underline;
+}
+
+/* ============================================================
+   DESKTOP / LAPTOP — modal normal (no fullscreen), misma
+   estética de vidrio, un poco más de aire.
+   ============================================================ */
+@media (min-width: 768px) {
+  .cg-content {
+    border-radius: 32px !important;
+  }
+
+  .cg-header {
+    padding: 2rem 2rem 0.5rem !important;
+  }
+
+  .cg-body {
+    padding: 0.5rem 2rem 1rem !important;
+  }
+
+  .cg-items {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+
+  .cg-item {
+    padding: 1rem 1.25rem;
+  }
+
+  .cg-item-img-wrap {
+    width: 76px;
+    height: 76px;
+  }
+
+  .cg-footer {
+    padding: 0.75rem 2rem 2rem;
+  }
+
+  .cg-confirm-btn {
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  .cg-seguir-btn {
+    max-width: 320px;
+    margin: 0 auto;
+  }
+}

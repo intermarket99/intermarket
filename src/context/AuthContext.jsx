@@ -114,20 +114,23 @@ export const AuthProvider = ({ children }) => {
         // Lógica de validación de rol:
         // Si el usuario es Vendedor en la DB, puede actuar como Comprador sin que se le resetee.
         // Si es Comprador en la DB pero intenta actuar como Vendedor, lo reseteamos por seguridad.
+        // Si acaba de convertirse en Vendedor en la DB (p. ej. tras suscribirse) pero el
+        // caché seguía en 'comprador' de antes, lo actualizamos a 'vendedor'.
         
         let rolFinal = rolEnCache;
 
         if (!rolEnCache) {
           // Si no hay nada en caché, usamos el de la DB
           rolFinal = dbRole;
-        } else {
-          // Validar si el rol en caché es permitido para su nivel en DB
-          if (dbRole === 'comprador' && rolEnCache === 'vendedor') {
-            // Un comprador no puede actuar como vendedor si no tiene el rol en DB
-            rolFinal = 'comprador';
-          } 
-          // Si es vendedor o admin en DB, permitimos que mantenga su rol de 'comprador' si lo eligió
+        } else if (dbRole === 'comprador' && rolEnCache === 'vendedor') {
+          // Un comprador no puede actuar como vendedor si no tiene el rol en DB
+          rolFinal = 'comprador';
+        } else if (dbRole === 'vendedor' && rolEnCache === 'comprador') {
+          // El usuario ya es vendedor en la DB (por ejemplo, acaba de suscribirse)
+          // pero el rol activo guardado en caché seguía siendo 'comprador': lo actualizamos.
+          rolFinal = 'vendedor';
         }
+        // Si dbRole === rolEnCache, o ninguna condición aplica, rolFinal se queda como estaba.
 
         // Solo actualizamos si el rol final es distinto al que tenemos en estado/caché
         if (rolFinal !== rolEnCache) {

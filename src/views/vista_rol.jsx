@@ -2,20 +2,24 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../database/supabaseconfig";
-import { Row, Col, Container, Spinner } from "react-bootstrap";
-import "../App.css";
+import { Spinner } from "react-bootstrap";
+import logo from "../assets/icono_intermAeview.png";
+
 
 const VistaRol = () => {
   const navigate = useNavigate();
   const { user, role, changeRole, signOut } = useAuth();
   const [verificando, setVerificando] = useState(false);
 
+  // Controla cuál de los dos botones muestra el borde de cristal + flecha.
+  // "primario" es el estado por defecto (Entrar a comprar activo).
+  const [btnActivo, setBtnActivo] = useState("primario");
+
   // Redirigir automáticamente solo al admin, compradores y vendedores eligen manualmente
   React.useEffect(() => {
-    if (role === 'admin') {
+    if (role === "admin") {
       navigate("/admin-inicio", { replace: true });
     }
-    // Eliminamos la redirección automática para vendedor y comprador
   }, [role, navigate]);
 
   const handleRoleSelection = async (rol) => {
@@ -63,56 +67,77 @@ const VistaRol = () => {
   };
 
   return (
-    <section className="rol-page-modern-bg">
-      <Container className="rol-container-wow">
-        <div className="mb-5">
-            <h1 className="fw-900 mb-3" style={{ color: 'var(--color-primario)', fontSize: 'clamp(2.5rem, 6vw, 4rem)', letterSpacing: '-2px' }}>
-                Tu siguiente paso
-            </h1>
-            <p className="text-muted fs-5">Elige cómo quieres interactuar con InterMarket hoy.</p>
+    <section className="glass-rol-page">
+      {/* Fondo: manchas de color difuminadas (liquid glass) */}
+      <div className="glass-rol-blob blob-superior" aria-hidden="true"></div>
+      <div className="glass-rol-blob blob-inferior" aria-hidden="true"></div>
+
+      {/* Botón cerrar / cerrar sesión */}
+      <button
+        type="button"
+        className="glass-rol-close"
+        onClick={cerrarSesion}
+        aria-label="Cerrar sesión"
+        title="Cerrar sesión"
+      >
+        <i className="bi bi-x-lg"></i>
+      </button>
+
+      <div className="glass-rol-wrapper">
+        {/* Logo + wordmark + tagline: fuera del panel de vidrio,
+            flotando directamente sobre el fondo */}
+        <div className="glass-rol-hero">
+          <img src={logo} alt="InterMarket" className="glass-rol-logo" />
+          <h1 className="glass-rol-wordmark">
+            <span className="wm-inter">Inter</span>
+            <span className="wm-market">Market</span>
+          </h1>
+          <p className="glass-rol-tagline">Conecta, Intercambia, Crece</p>
         </div>
 
-        <Row className="justify-content-center g-4">
-          <Col md={6} lg={5}>
-            <div
-              className={`rol-card-wow h-100 ${verificando ? 'pe-none opacity-50' : ''}`}
+        {/* Panel de vidrio: solo contiene los botones, pegado abajo */}
+        <div className="glass-rol-panel">
+          <div className="glass-rol-card">
+            <button
+              type="button"
+              className={`glass-rol-btn glass-rol-btn-primary ${
+                btnActivo === "primario" ? "is-active" : "is-inactive"
+              }`}
               onClick={() => !verificando && handleRoleSelection("comprador")}
+              onMouseEnter={() => setBtnActivo("primario")}
+              onFocus={() => setBtnActivo("primario")}
+              disabled={verificando}
             >
-              <div className="rol-icon-wow">
-                <i className="bi bi-cart-check" />
-              </div>
-              <h2 className="rol-title-card">Comprador</h2>
-              <p className="rol-desc-card">
-                Explora productos únicos, descubre ofertas exclusivas y gestiona tus pedidos con facilidad.
-              </p>
-            </div>
-          </Col>
+              <span className="glass-rol-btn-sheen" aria-hidden="true"></span>
+              <span className="glass-rol-btn-label">Entrar a comprar</span>
+              <i className="bi bi-arrow-right glass-rol-btn-arrow"></i>
+            </button>
 
-          <Col md={6} lg={5}>
-            <div
-              className={`rol-card-wow h-100 ${verificando ? 'pe-none opacity-50' : ''}`}
+            <button
+              type="button"
+              className={`glass-rol-btn glass-rol-btn-secondary ${
+                btnActivo === "secundario" ? "is-active" : "is-inactive"
+              }`}
               onClick={() => !verificando && handleRoleSelection("vendedor")}
+              onMouseEnter={() => setBtnActivo("secundario")}
+              onMouseLeave={() => setBtnActivo("primario")}
+              onFocus={() => setBtnActivo("secundario")}
+              onBlur={() => setBtnActivo("primario")}
+              disabled={verificando}
             >
-              <div className="rol-icon-wow">
-                {verificando ? (
-                  <Spinner animation="border" variant="primary" />
-                ) : (
-                  <i className="bi bi-graph-up-arrow" />
-                )}
-              </div>
-              <h2 className="rol-title-card">Vendedor</h2>
-              <p className="rol-desc-card">
-                Haz crecer tu negocio, publica nuevos productos y lleva el control total de tus ventas.
-              </p>
-            </div>
-          </Col>
-        </Row>
+              <span className="glass-rol-btn-sheen" aria-hidden="true"></span>
+              <span className="glass-rol-btn-label">
+                {verificando ? <Spinner animation="border" size="sm" /> : "Soy vendedor"}
+              </span>
+              <i className="bi bi-arrow-right glass-rol-btn-arrow"></i>
+            </button>
 
-        <button type="button" className="rol-btn-logout-wow shadow-sm" onClick={cerrarSesion}>
-          <i className="bi bi-power me-2"></i>
-          Cerrar sesión segura
-        </button>
-      </Container>
+            <p className="glass-rol-stats">
+              1,200+ productos &middot; 340+ vendedores activos
+            </p>
+          </div>
+        </div>
+      </div>
     </section>
   );
 };
