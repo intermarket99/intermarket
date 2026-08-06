@@ -48,6 +48,29 @@ const ModalRegistroProducto = ({
         manejoCambioInput({ target: { name: 'colores', value: coloresArray } });
     };
 
+    // Estilos reutilizables para coincidir con el diseño
+    const labelStyle = {
+        color: '#0d5c63',
+        fontWeight: 600,
+        fontSize: '0.95rem',
+        marginBottom: '6px'
+    };
+
+    const inputStyle = {
+        backgroundColor: '#e8f4f8',
+        border: 'none',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        fontSize: '0.95rem',
+        color: '#333',
+        boxShadow: 'none'
+    };
+
+    const inputFocusStyle = {
+        backgroundColor: '#e0f0f5',
+        boxShadow: '0 0 0 2px rgba(13, 92, 99, 0.15)'
+    };
+
     return (
         <Modal
             show={mostrarModal}
@@ -55,136 +78,152 @@ const ModalRegistroProducto = ({
             backdrop="static"
             keyboard={false}
             centered
-            size="lg"
+            size="md"
+            contentClassName="border-0 shadow-lg"
+            style={{ borderRadius: '16px' }}
         >
+            {/* Header */}
             <Modal.Header
-                closeButton
-                className="border-0"
-                style={{
-                    background: 'linear-gradient(135deg, var(--color-primario) 0%, #1a7a8a 100%)',
-                    padding: '0.65rem 1.25rem',
-                }}
+                className="border-0 pb-0 pt-4 px-4"
+                style={{ background: 'transparent' }}
             >
-                <Modal.Title className="fw-bold text-white d-flex align-items-center gap-2" style={{ fontSize: '1rem' }}>
-                    <i className="bi bi-plus-circle"></i>
-                    Registrar Nuevo Producto
+                <Modal.Title 
+                    className="fw-bold" 
+                    style={{ color: '#0d5c63', fontSize: '1.35rem' }}
+                >
+                    Registrar productos
                 </Modal.Title>
+                <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => setMostrarModal(false)}
+                    aria-label="Cerrar"
+                    style={{ 
+                        filter: 'invert(15%) sepia(90%) saturate(5000%) hue-rotate(350deg) brightness(0.9)',
+                        opacity: 0.85
+                    }}
+                />
             </Modal.Header>
 
-            <Modal.Body>
+            <Modal.Body className="px-4 pt-3 pb-2">
                 <Form>
-                    <Row>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Nombre del Producto *</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    name="nombre_producto"
-                                    value={nuevoProducto.nombre_producto}
-                                    onChange={manejoCambioInput}
-                                    placeholder="Ingrese el nombre del producto"
-                                />
-                            </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Categoría *</Form.Label>
-                                <Form.Select
-                                    name="categoria_id"
-                                    value={nuevoProducto.categoria_id}
-                                    onChange={manejoCambioInput}
-                                >
-                                    <option value="">Selecciona una categoría</option>
-                                    {categorias.map((categoria) => (
-                                        <option key={categoria.id_categoria} value={categoria.id_categoria}>
-                                            {categoria.nombre_categoria}
-                                        </option>
-                                    ))}
-                                </Form.Select>
-                            </Form.Group>
-                        </Col>
-                    </Row>
-
+                    {/* Nombre del producto */}
                     <Form.Group className="mb-3">
-                        <Form.Label>Descripción</Form.Label>
+                        <Form.Label style={labelStyle}>Nombre del producto</Form.Label>
                         <Form.Control
-                            as="textarea"
-                            rows={3}
-                            name="descripcion"
-                            value={nuevoProducto.descripcion}
+                            type="text"
+                            name="nombre_producto"
+                            value={nuevoProducto.nombre_producto}
                             onChange={manejoCambioInput}
-                            placeholder="Descripción del producto"
+                            placeholder="Ingresa el nombre del producto"
+                            style={inputStyle}
+                            onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                            onBlur={(e) => Object.assign(e.target.style, inputStyle)}
                         />
                     </Form.Group>
 
-                    <Row>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Precio de Compra *</Form.Label>
+                    {/* Categoría */}
+                    <Form.Group className="mb-3">
+                        <Form.Label style={labelStyle}>Categoría</Form.Label>
+                        <Form.Select
+                            name="categoria_id"
+                            value={nuevoProducto.categoria_id}
+                            onChange={manejoCambioInput}
+                            style={inputStyle}
+                            onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                            onBlur={(e) => Object.assign(e.target.style, inputStyle)}
+                        >
+                            <option value="">Seleccione una categoría</option>
+                            {categorias.map((categoria) => (
+                                <option key={categoria.id_categoria} value={categoria.id_categoria}>
+                                    {categoria.nombre_categoria}
+                                </option>
+                            ))}
+                        </Form.Select>
+                    </Form.Group>
+
+                    {/* Descripción */}
+                    <Form.Group className="mb-3">
+                        <Form.Label style={labelStyle}>Descripcion</Form.Label>
+                        <Form.Control
+                            as="textarea"
+                            rows={2}
+                            name="descripcion"
+                            value={nuevoProducto.descripcion}
+                            onChange={manejoCambioInput}
+                            placeholder="Descripcion del producto"
+                            style={{ ...inputStyle, resize: 'none' }}
+                            onFocus={(e) => Object.assign(e.target.style, { ...inputFocusStyle, resize: 'none' })}
+                            onBlur={(e) => Object.assign(e.target.style, { ...inputStyle, resize: 'none' })}
+                        />
+                    </Form.Group>
+
+                    {/* Precios */}
+                    <Row className="mb-3">
+                        <Col xs={6}>
+                            <Form.Group>
+                                <Form.Label style={labelStyle}>Precio compra</Form.Label>
                                 <Form.Control
                                     type="number"
                                     step="0.01"
                                     name="precio_compra"
                                     value={nuevoProducto.precio_compra}
                                     onChange={manejoCambioInput}
+                                    placeholder="C$ 499"
+                                    style={inputStyle}
+                                    onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                                    onBlur={(e) => Object.assign(e.target.style, inputStyle)}
                                 />
                             </Form.Group>
                         </Col>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Precio de Venta *</Form.Label>
+                        <Col xs={6}>
+                            <Form.Group>
+                                <Form.Label style={labelStyle}>Precio venta</Form.Label>
                                 <Form.Control
                                     type="number"
                                     step="0.01"
                                     name="precio_venta"
                                     value={nuevoProducto.precio_venta}
                                     onChange={manejoCambioInput}
+                                    placeholder="Ej: 550"
+                                    style={inputStyle}
+                                    onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                                    onBlur={(e) => Object.assign(e.target.style, inputStyle)}
                                 />
                             </Form.Group>
                         </Col>
                     </Row>
 
-                    <Row>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Stock Inicial *</Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    min="0"
-                                    name="stock"
-                                    value={nuevoProducto.stock ?? ''}
-                                    onChange={manejoCambioInput}
-                                    placeholder="Ej: 50"
-                                />
-                                <Form.Text className="text-muted small">Unidades disponibles para venta.</Form.Text>
-                            </Form.Group>
-                        </Col>
-                        <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Seleccionar Imágenes (varias)</Form.Label>
-                                <Form.Control
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={manejoCambioArchivo}
-                                />
-                                <Form.Text className="text-muted small">
-                                    Puedes seleccionar varias imágenes a la vez.
-                                </Form.Text>
-                            </Form.Group>
-                        </Col>
-                    </Row>
+                    {/* Stock (en el diseño aparece como "Categoria" + unidades) */}
+                    <Form.Group className="mb-3">
+                        <Form.Label style={labelStyle}>Stock</Form.Label>
+                        <Form.Control
+                            type="number"
+                            min="0"
+                            name="stock"
+                            value={nuevoProducto.stock ?? ''}
+                            onChange={manejoCambioInput}
+                            placeholder="Ej: 50"
+                            style={inputStyle}
+                            onFocus={(e) => Object.assign(e.target.style, inputFocusStyle)}
+                            onBlur={(e) => Object.assign(e.target.style, inputStyle)}
+                        />
+                        <Form.Text style={{ color: '#6c757d', fontSize: '0.8rem', marginTop: '4px' }}>
+                            Unidades disponibles por venta
+                        </Form.Text>
+                    </Form.Group>
 
+                    {/* Variantes de ropa (solo si la categoría es ropa) */}
                     {esCategoriaRopa() && (
-                        <div className="bg-light p-3 rounded-4 mb-3 border border-secondary border-opacity-10">
-                            <h6 className="fw-bold mb-3 d-flex align-items-center gap-2">
-                                <i className="bi bi-tag text-primary"></i>
+                        <div className="mb-3 p-3 rounded-3" style={{ backgroundColor: '#f8fafb', border: '1px solid #e8f0f2' }}>
+                            <h6 className="fw-bold mb-3" style={{ color: '#0d5c63', fontSize: '0.95rem' }}>
+                                <i className="bi bi-tag me-2"></i>
                                 Variantes de Ropa
                             </h6>
                             <Row>
                                 <Col md={6}>
-                                    <Form.Group className="mb-3">
-                                        <Form.Label className="small fw-bold text-muted">Tallas Disponibles</Form.Label>
+                                    <Form.Group className="mb-2">
+                                        <Form.Label className="small fw-semibold text-muted">Tallas</Form.Label>
                                         <div className="d-flex flex-wrap gap-1 mb-2">
                                             {TALLAS_COMUNES.map(talla => (
                                                 <Button
@@ -202,16 +241,16 @@ const ModalRegistroProducto = ({
                                         <Form.Control
                                             type="text"
                                             size="sm"
-                                            placeholder="Otras tallas (ej: 32, 34, 36)"
+                                            placeholder="Otras tallas (ej: 32, 34)"
                                             onChange={handleTallasChange}
                                             value={Array.isArray(nuevoProducto.tallas) ? nuevoProducto.tallas.filter(t => !TALLAS_COMUNES.includes(t)).join(', ') : ''}
-                                            className="rounded-3"
+                                            style={{ ...inputStyle, padding: '8px 12px' }}
                                         />
                                     </Form.Group>
                                 </Col>
                                 <Col md={6}>
-                                    <Form.Group className="mb-3">
-                                        <Form.Label className="small fw-bold text-muted">Colores Disponibles</Form.Label>
+                                    <Form.Group className="mb-2">
+                                        <Form.Label className="small fw-semibold text-muted">Colores</Form.Label>
                                         <div className="d-flex flex-wrap gap-1 mb-2">
                                             {COLORES_COMUNES.map(color => (
                                                 <Button
@@ -229,10 +268,10 @@ const ModalRegistroProducto = ({
                                         <Form.Control
                                             type="text"
                                             size="sm"
-                                            placeholder="Otros colores (ej: Turquesa, Oro)"
+                                            placeholder="Otros colores"
                                             onChange={handleColoresChange}
                                             value={Array.isArray(nuevoProducto.colores) ? nuevoProducto.colores.filter(c => !COLORES_COMUNES.includes(c)).join(', ') : ''}
-                                            className="rounded-3"
+                                            style={{ ...inputStyle, padding: '8px 12px' }}
                                         />
                                     </Form.Group>
                                 </Col>
@@ -240,43 +279,96 @@ const ModalRegistroProducto = ({
                         </div>
                     )}
 
-                    {nuevoProducto.archivos_imagen && nuevoProducto.archivos_imagen.length > 0 && (
-                        <div className="mb-3">
-                            <Form.Label className="small text-muted">Vista previa de imágenes seleccionadas:</Form.Label>
-                            <div className="d-flex flex-wrap gap-2 justify-content-center p-2 border rounded bg-light">
-                                {Array.from(nuevoProducto.archivos_imagen).map((file, idx) => (
-                                    <div key={idx} className="position-relative">
-                                        <img
-                                            src={URL.createObjectURL(file)}
-                                            alt={`Vista previa ${idx + 1}`}
-                                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-                                            onLoad={(e) => URL.revokeObjectURL(e.target.src)}
-                                        />
-                                        <Badge 
-                                            bg="dark" 
-                                            className="position-absolute top-0 end-0 m-1 opacity-75" 
-                                            style={{ fontSize: '0.6rem' }}
-                                        >
-                                            {idx + 1}
-                                        </Badge>
+                    {/* Imágenes del producto */}
+                    <Form.Group className="mb-3">
+                        <Form.Label style={labelStyle}>Imagenes del producto</Form.Label>
+                        
+                        <div
+                            className="position-relative"
+                            style={{
+                                border: '2px dashed #f5c6cb',
+                                borderRadius: '12px',
+                                backgroundColor: '#fdf2f2',
+                                minHeight: '90px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            onClick={() => document.getElementById('input-imagenes-producto')?.click()}
+                        >
+                            <input
+                                id="input-imagenes-producto"
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={manejoCambioArchivo}
+                                style={{ display: 'none' }}
+                            />
+                            
+                            {nuevoProducto.archivos_imagen && nuevoProducto.archivos_imagen.length > 0 ? (
+                                <div className="d-flex flex-wrap gap-2 justify-content-center p-2 w-100">
+                                    {Array.from(nuevoProducto.archivos_imagen).map((file, idx) => (
+                                        <div key={idx} className="position-relative">
+                                            <img
+                                                src={URL.createObjectURL(file)}
+                                                alt={`Vista previa ${idx + 1}`}
+                                                style={{
+                                                    width: '70px',
+                                                    height: '70px',
+                                                    objectFit: 'cover',
+                                                    borderRadius: '8px',
+                                                    border: '2px solid white',
+                                                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                                                }}
+                                                onLoad={(e) => URL.revokeObjectURL(e.target.src)}
+                                            />
+                                            <Badge
+                                                bg="dark"
+                                                className="position-absolute top-0 end-0 m-1 opacity-75"
+                                                style={{ fontSize: '0.55rem' }}
+                                            >
+                                                {idx + 1}
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted py-3">
+                                    <i className="bi bi-image" style={{ fontSize: '1.6rem', color: '#e89a9a' }}></i>
+                                    <div style={{ fontSize: '0.85rem', marginTop: '4px', color: '#b07a7a' }}>
+                                        Toca para seleccionar imágenes
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </Form.Group>
                 </Form>
             </Modal.Body>
 
-            <Modal.Footer>
-                <Button variant="secondary" onClick={() => setMostrarModal(false)}>
-                    Cancelar
-                </Button>
+            {/* Footer con botón principal */}
+            <Modal.Footer className="border-0 pt-0 pb-4 px-4">
                 <Button
-                    variant="primary"
                     onClick={handleAgregar}
                     disabled={deshabilitado}
+                    className="w-100 border-0 fw-semibold"
+                    style={{
+                        backgroundColor: '#a8e0ef',
+                        color: '#0d5c63',
+                        borderRadius: '50px',
+                        padding: '12px',
+                        fontSize: '1rem',
+                        boxShadow: 'none'
+                    }}
+                    onMouseOver={(e) => {
+                        if (!deshabilitado) e.currentTarget.style.backgroundColor = '#8fd4e8';
+                    }}
+                    onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = '#a8e0ef';
+                    }}
                 >
-                    {deshabilitado ? "Guardando..." : "Guardar Producto"}
+                    {deshabilitado ? "Publicando..." : "Publicar producto"}
                 </Button>
             </Modal.Footer>
         </Modal>
