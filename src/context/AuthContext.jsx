@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../database/supabaseconfig';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState
+} from "react";
 
-const AuthContext = createContext();
+import { supabase } from "../database/supabaseconfig";
+
+const AuthContext = createContext(null);
 
 export const useAuth = () => {
   return useContext(AuthContext);
@@ -10,167 +16,411 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(() => localStorage.getItem("rol-activo"));
+
+  const [role, setRole] = useState(() => {
+    return localStorage.getItem("rol-activo");
+  });
+
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let lastUserId = null;
-    let isInitialMount = true;
+  const signOut = async () => {
+    try {
+      console.log("🚪 Cerrando sesión...");
 
-    // Failsafe: Reducimos a 800ms para evitar esperas largas si algo falla
-    const failsafeTimer = setTimeout(() => {
+      localStorage.removeItem("rol-activo");
+      localStorage.removeItem("usuario-supabase");
+      localStorage.removeItem("usuario");
+
+      setRole(null);
+      setUser(null);
+      setSession(null);
       setLoading(false);
-    }, 800);
 
-    // 1. Obtener sesión inicial y configurar listener en una sola lógica
-    const initAuth = async () => {
-      try {
-        console.log("🔐 Inicializando autenticación...");
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        
-        const initialUser = initialSession?.user ?? null;
-        console.log("📋 Sesión inicial obtenida:", initialUser?.email);
-        setSession(initialSession);
-        setUser(initialUser);
-        
-        if (initialUser) {
-          lastUserId = initialUser.id;
-          await fetchUserRole(initialUser.id, false);
-        } else {
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("❌ Error en inicialización de auth:", err);
-        setLoading(false);
-      } finally {
-        isInitialMount = false;
-        clearTimeout(failsafeTimer);
+      const { error } =
+        await supabase.auth.signOut();
+
+      if (error) {
+        throw error;
       }
-    };
 
-    initAuth();
+      console.log("✓ Sesión cerrada");
+    } catch (error) {
+      console.error(
+        "❌ Error al cerrar sesión:",
+        error
+      );
+    }
+  };
 
-    // 2. Escuchar cambios de autenticación
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log("🔄 onAuthStateChange:", event, "user:", currentSession?.user?.email);
-      // Ignorar el evento inicial si ya lo manejamos en initAuth
-      if (isInitialMount && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) return;
+  const fetchUserRole = async (
+    userId,
+    forceLoading = false
+  ) => {
+    if (!userId) {
+      setRole(null);
+      setLoading(false);
+      return null;
+    }
 
-      const currentUser = currentSession?.user ?? null;
-      setSession(currentSession);
-      setUser(currentUser);
-      
-      if (currentUser) {
-        if (currentUser.id !== lastUserId || event === 'SIGNED_IN') {
-          lastUserId = currentUser.id;
-          await fetchUserRole(currentUser.id, event === 'SIGNED_IN');
-        }
-      } else {
-        lastUserId = null;
-        setRole(null);
-        localStorage.removeItem("rol-activo");
-        setLoading(false);
-      }
-    });
+    console.log(
+      "👤 fetchUserRole:",
+      userId,
+      "forceLoading:",
+      forceLoading
+    );
 
-    return () => {
-      clearTimeout(failsafeTimer);
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+    const rolEnCache =
+      localStorage.getItem("rol-activo");
 
-  const fetchUserRole = async (userId, forceLoading = false) => {
-    console.log("👤 fetchUserRole:", userId, "forceLoading:", forceLoading);
-    // Si ya tenemos un rol en caché, liberamos el loading de inmediato para que la UI cargue
-    const rolEnCache = localStorage.getItem("rol-activo");
     if (rolEnCache) {
-      console.log("✓ Rol en caché:", rolEnCache);
       setRole(rolEnCache);
-      setLoading(false); 
+      setLoading(false);
     } else if (forceLoading) {
       setLoading(true);
     }
 
     try {
-      // 1. Consultar el rol real y estado de restricción en la base de datos
-      const { data: userData, error: userError } = await supabase
-        .from('usuarios')
-        .select('rol, restringido')
-        .eq('id_usuario', userId)
-        .single();
+      const {
+        data: userData,
+        error: userError
+      } = await supabase
+        .from("usuarios")
+        .select("rol, restringido")
+        .eq("id_usuario", userId)
+        .maybeSingle();
 
-      if (!userError && userData) {
-        console.log("📊 Usuario encontrado en DB:", userData);
-        // Si el usuario está restringido, cerramos su sesión inmediatamente
-        if (userData.restringido) {
-          await signOut();
-          alert("Tu cuenta ha sido restringida ya que no cumples con la politicas.");
-          return;
-        }
+      if (userError) {
+        throw userError;
+      }
 
-        const dbRole = userData.rol;
-        
-        // Lógica de validación de rol:
-        // Si el usuario es Vendedor en la DB, puede actuar como Comprador sin que se le resetee.
-        // Si es Comprador en la DB pero intenta actuar como Vendedor, lo reseteamos por seguridad.
-        // Si acaba de convertirse en Vendedor en la DB (p. ej. tras suscribirse) pero el
-        // caché seguía en 'comprador' de antes, lo actualizamos a 'vendedor'.
-        
-        let rolFinal = rolEnCache;
+      /*
+       * Puede ocurrir que el usuario exista en auth.users,
+       * pero todavía no tenga registro en public.usuarios.
+       */
+      if (!userData) {
+        console.warn(
+          "El usuario aún no existe en public.usuarios."
+        );
 
-        if (!rolEnCache) {
-          // Si no hay nada en caché, usamos el de la DB
-          rolFinal = dbRole;
-        } else if (dbRole === 'comprador' && rolEnCache === 'vendedor') {
-          // Un comprador no puede actuar como vendedor si no tiene el rol en DB
-          rolFinal = 'comprador';
-        } else if (dbRole === 'vendedor' && rolEnCache === 'comprador') {
-          // El usuario ya es vendedor en la DB (por ejemplo, acaba de suscribirse)
-          // pero el rol activo guardado en caché seguía siendo 'comprador': lo actualizamos.
-          rolFinal = 'vendedor';
-        }
-        // Si dbRole === rolEnCache, o ninguna condición aplica, rolFinal se queda como estaba.
+        const rolTemporal =
+          rolEnCache || "comprador";
 
-        // Solo actualizamos si el rol final es distinto al que tenemos en estado/caché
-        if (rolFinal !== rolEnCache) {
-          console.log("🔄 Rol actualizado:", rolFinal);
-          localStorage.setItem("rol-activo", rolFinal);
-          setRole(rolFinal);
+        localStorage.setItem(
+          "rol-activo",
+          rolTemporal
+        );
+
+        setRole(rolTemporal);
+
+        return rolTemporal;
+      }
+
+      if (userData.restringido) {
+        await signOut();
+
+        alert(
+          "Tu cuenta ha sido restringida ya que no cumple con las políticas."
+        );
+
+        return null;
+      }
+
+      const dbRole =
+        userData.rol || "comprador";
+
+      let rolFinal =
+        rolEnCache || dbRole;
+
+      /*
+       * Reglas:
+       *
+       * 1. Si la base dice comprador,
+       *    no puede mantenerse como vendedor.
+       *
+       * 2. Si la base ya dice vendedor,
+       *    pero el caché todavía dice comprador,
+       *    significa que acaba de suscribirse.
+       *
+       * 3. El administrador siempre conserva admin.
+       */
+
+      if (dbRole === "comprador") {
+        rolFinal = "comprador";
+      }
+
+      if (dbRole === "vendedor") {
+        if (
+          !rolEnCache ||
+          rolEnCache === "comprador"
+        ) {
+          rolFinal = "vendedor";
         }
       }
+
+      if (dbRole === "admin") {
+        rolFinal = "admin";
+      }
+
+      localStorage.setItem(
+        "rol-activo",
+        rolFinal
+      );
+
+      setRole(rolFinal);
+
+      console.log(
+        "✓ Rol activo:",
+        rolFinal
+      );
+
+      return rolFinal;
     } catch (error) {
-      console.error('❌ Error al validar rol en DB:', error);
+      console.error(
+        "❌ Error al validar rol en DB:",
+        error
+      );
+
+      /*
+       * Si falla momentáneamente Supabase,
+       * conservar el rol en caché.
+       */
+      if (rolEnCache) {
+        setRole(rolEnCache);
+        return rolEnCache;
+      }
+
+      setRole("comprador");
+
+      localStorage.setItem(
+        "rol-activo",
+        "comprador"
+      );
+
+      return "comprador";
     } finally {
       setLoading(false);
     }
   };
 
   const changeRole = (newRole) => {
-    localStorage.setItem("rol-activo", newRole);
+    if (!newRole) {
+      return;
+    }
+
+    console.log(
+      "🔄 Cambiando rol activo a:",
+      newRole
+    );
+
+    localStorage.setItem(
+      "rol-activo",
+      newRole
+    );
+
     setRole(newRole);
   };
 
-  const signOut = async () => {
-    try {
-      console.log("🚪 Cerrando sesión...");
-      // 1. Limpiar estado local inmediatamente para mejorar la respuesta de la UI
-      localStorage.removeItem("rol-activo");
-      localStorage.removeItem("usuario-supabase");
-      localStorage.removeItem("usuario");
-      
-      setRole(null);
-      setUser(null);
-      setSession(null);
-      setLoading(false);
+  const refreshRole = async () => {
+    if (!user?.id) {
+      return null;
+    }
 
-      // 2. Intentar cerrar sesión en Supabase
-      await supabase.auth.signOut();
-      console.log("✓ Sesión cerrada");
-    } catch (err) {
-      console.error("❌ Error al cerrar sesión en Supabase:", err);
+    try {
+      const {
+        data,
+        error
+      } = await supabase
+        .from("usuarios")
+        .select("rol, restringido")
+        .eq("id_usuario", user.id)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        console.warn(
+          "No se encontró el usuario en public.usuarios."
+        );
+
+        return null;
+      }
+
+      if (data.restringido) {
+        await signOut();
+
+        alert(
+          "Tu cuenta ha sido restringida."
+        );
+
+        return null;
+      }
+
+      const nuevoRol =
+        data.rol || "comprador";
+
+      localStorage.setItem(
+        "rol-activo",
+        nuevoRol
+      );
+
+      setRole(nuevoRol);
+
+      console.log(
+        "✓ Rol refrescado:",
+        nuevoRol
+      );
+
+      return nuevoRol;
+    } catch (error) {
+      console.error(
+        "❌ Error refrescando el rol:",
+        error
+      );
+
+      return null;
     }
   };
+
+  useEffect(() => {
+    let lastUserId = null;
+    let isInitialMount = true;
+
+    const failsafeTimer =
+      setTimeout(() => {
+        setLoading(false);
+      }, 1200);
+
+    const initAuth = async () => {
+      try {
+        console.log(
+          "🔐 Inicializando autenticación..."
+        );
+
+        const {
+          data: {
+            session: initialSession
+          },
+          error
+        } =
+          await supabase.auth.getSession();
+
+        if (error) {
+          throw error;
+        }
+
+        const initialUser =
+          initialSession?.user ?? null;
+
+        setSession(initialSession);
+        setUser(initialUser);
+
+        if (initialUser) {
+          lastUserId =
+            initialUser.id;
+
+          await fetchUserRole(
+            initialUser.id,
+            false
+          );
+        } else {
+          setRole(null);
+          localStorage.removeItem(
+            "rol-activo"
+          );
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error(
+          "❌ Error inicializando autenticación:",
+          error
+        );
+
+        setLoading(false);
+      } finally {
+        isInitialMount = false;
+        clearTimeout(
+          failsafeTimer
+        );
+      }
+    };
+
+    initAuth();
+
+    const {
+      data: authListener
+    } =
+      supabase.auth.onAuthStateChange(
+        async (
+          event,
+          currentSession
+        ) => {
+          console.log(
+            "🔄 onAuthStateChange:",
+            event,
+            currentSession?.user?.email
+          );
+
+          if (
+            isInitialMount &&
+            (
+              event ===
+                "INITIAL_SESSION" ||
+              event ===
+                "SIGNED_IN"
+            )
+          ) {
+            return;
+          }
+
+          const currentUser =
+            currentSession?.user ??
+            null;
+
+          setSession(currentSession);
+          setUser(currentUser);
+
+          if (currentUser) {
+            const debeConsultarRol =
+              currentUser.id !==
+                lastUserId ||
+              event === "SIGNED_IN" ||
+              event ===
+                "TOKEN_REFRESHED" ||
+              event ===
+                "USER_UPDATED";
+
+            if (debeConsultarRol) {
+              lastUserId =
+                currentUser.id;
+
+              await fetchUserRole(
+                currentUser.id,
+                event === "SIGNED_IN"
+              );
+            }
+          } else {
+            lastUserId = null;
+
+            setRole(null);
+            setLoading(false);
+
+            localStorage.removeItem(
+              "rol-activo"
+            );
+          }
+        }
+      );
+
+    return () => {
+      clearTimeout(
+        failsafeTimer
+      );
+
+      authListener?.subscription?.unsubscribe();
+    };
+  }, []);
 
   const value = {
     session,
@@ -178,11 +428,14 @@ export const AuthProvider = ({ children }) => {
     role,
     loading,
     signOut,
-    changeRole
+    changeRole,
+    refreshRole
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={value}
+    >
       {children}
     </AuthContext.Provider>
   );

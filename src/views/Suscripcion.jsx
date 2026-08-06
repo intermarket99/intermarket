@@ -1,11 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Spinner } from "react-bootstrap";
+
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../database/supabaseconfig";
 
-
-// Traduce la duración del plan al sufijo que se muestra junto al precio
 const sufijoDuracion = (duracion) => {
   switch (duracion) {
     case "Mensual":
@@ -21,16 +20,17 @@ const sufijoDuracion = (duracion) => {
 
 const Suscripcion = () => {
   const navigate = useNavigate();
-  const { user, role, changeRole } = useAuth();
+  const { user, changeRole } = useAuth();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [btnActivo, setBtnActivo] = useState("primario");
 
   const planes = [
     {
       id: "plan_bronce",
       nombre: "Plan Bronce",
       precio: 9.99,
-      paymentLink: "https://buy.stripe.com/test_00w5kD3Bd4du8Zz7My04804", // Crea un 'Payment Link' en Stripe
       duracion: "Mensual",
       caracteristicas: [
         "Hasta 50 productos",
@@ -44,7 +44,6 @@ const Suscripcion = () => {
       id: "plan_plata",
       nombre: "Plan Plata",
       precio: 24.99,
-      paymentLink: "https://buy.stripe.com/test_aFaeVdc7JeS8b7H8QC04803", // Crea un 'Payment Link' en Stripe
       duracion: "Trimestral",
       caracteristicas: [
         "Hasta 200 productos",
@@ -59,7 +58,6 @@ const Suscripcion = () => {
       id: "plan_oro",
       nombre: "Plan Oro",
       precio: 79.99,
-      paymentLink: "https://buy.stripe.com/test_bJe8wP4FheS82BbeaW04805", // Crea un 'Payment Link' en Stripe
       duracion: "Anual",
       caracteristicas: [
         "Productos ilimitados",
@@ -71,31 +69,121 @@ const Suscripcion = () => {
     }
   ];
 
-  // Plan resaltado por defecto: el marcado como "popular", o el primero
   const [planSeleccionado, setPlanSeleccionado] = useState(
-    () => planes.find((p) => p.popular) || planes[0]
+    () => planes.find((plan) => plan.popular) || planes[0]
   );
-
-  // Controla cuál de los dos botones inferiores muestra el cristal
-  // (mismo patrón que en VistaRol: solo uno activo a la vez)
-  const [btnActivo, setBtnActivo] = useState("primario");
 
   const handleSuscripcion = async (plan) => {
     setLoading(true);
     setError(null);
 
     try {
-      if (plan.paymentLink.includes("AQUÍ_TU_LINK")) {
-        throw new Error("Por favor, configura los Payment Links de Stripe en el código.");
+      if (!user?.id) {
+        throw new Error(
+          "Debes iniciar sesión para continuar."
+        );
       }
 
-      console.log("Redirigiendo a Stripe Payment Link para el plan:", plan.nombre);
+      console.log(
+        "Activando acceso de vendedor con el plan:",
+        plan.nombre
+      );
 
-      // La forma más moderna y sencilla en 2026: Redirección directa al link de pago
-      window.location.href = plan.paymentLink;
+      const {
+        data: usuarioActualizado,
+        error: actualizarRolError
+      } = await supabase
+        .from("usuarios")
+        .update({
+          rol: "vendedor"
+        })
+        .eq("id_usuario", user.id)
+        .select("id_usuario, username, email, rol")
+        .single();
+
+      if (actualizarRolError) {
+        throw new Error(
+          `No se pudo cambiar el rol: ${actualizarRolError.message}`
+        );
+      }
+
+      console.log(
+        "Usuario actualizado:",
+        usuarioActualizado
+      );
+
+      const {
+        data: perfilExistente,
+        error: consultarPerfilError
+      } = await supabase
+        .from("perfiles")
+        .select("perfil_id, id_usuario, id_tienda")
+        .eq("id_usuario", user.id)
+        .maybeSingle();
+
+      if (consultarPerfilError) {
+        throw new Error(
+          `No se pudo consultar el perfil: ${consultarPerfilError.message}`
+        );
+      }
+
+      if (!perfilExistente) {
+        const {
+          data: perfilCreado,
+          error: crearPerfilError
+        } = await supabase
+          .from("perfiles")
+          .insert({
+            id_usuario: user.id,
+            id_tienda: null,
+            foto_perfil: null
+          })
+          .select()
+          .single();
+
+        if (crearPerfilError) {
+          throw new Error(
+            `No se pudo crear el perfil: ${crearPerfilError.message}`
+          );
+        }
+
+        console.log(
+          "Perfil creado:",
+          perfilCreado
+        );
+      } else {
+        console.log(
+          "Perfil existente:",
+          perfilExistente
+        );
+      }
+
+      localStorage.setItem(
+        "rol-activo",
+        "vendedor"
+      );
+
+      if (typeof changeRole === "function") {
+        changeRole("vendedor");
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 200);
+      });
+
+      navigate("/vendedor", {
+        replace: true
+      });
     } catch (err) {
-      console.error("Error al procesar suscripción:", err);
-      setError(err.message || "Error al conectar con la pasarela de pago.");
+      console.error(
+        "Error entrando como vendedor:",
+        err
+      );
+
+      setError(
+        err.message ||
+          "No se pudo activar el acceso de vendedor."
+      );
     } finally {
       setLoading(false);
     }
@@ -103,50 +191,90 @@ const Suscripcion = () => {
 
   return (
     <section className="susc-page">
-      <div className="susc-blob blob-a" aria-hidden="true"></div>
-      <div className="susc-blob blob-b" aria-hidden="true"></div>
+      <div
+        className="susc-blob blob-a"
+        aria-hidden="true"
+      ></div>
+
+      <div
+        className="susc-blob blob-b"
+        aria-hidden="true"
+      ></div>
 
       <div className="susc-wrapper">
         <div className="susc-header">
-          <h1 className="susc-title">Activa tu tienda</h1>
-          <p className="susc-subtitle">Elige tu plan para comenzar a vender</p>
+          <h1 className="susc-title">
+            Activa tu tienda
+          </h1>
+
+          <p className="susc-subtitle">
+            Elige tu plan para comenzar a vender
+          </p>
         </div>
 
-        {error && <div className="susc-alert">{error}</div>}
+        {error && (
+          <div className="susc-alert">
+            {error}
+          </div>
+        )}
 
         <div className="susc-planes">
           {planes.map((plan) => {
-            const seleccionado = planSeleccionado.id === plan.id;
+            const seleccionado =
+              planSeleccionado.id === plan.id;
+
             return (
               <div
                 key={plan.id}
                 role="button"
                 tabIndex={0}
                 aria-pressed={seleccionado}
-                className={`susc-plan-card ${seleccionado ? "is-selected" : ""}`}
-                onClick={() => setPlanSeleccionado(plan)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
+                className={`susc-plan-card ${
+                  seleccionado ? "is-selected" : ""
+                }`}
+                onClick={() =>
+                  setPlanSeleccionado(plan)
+                }
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                  ) {
+                    event.preventDefault();
                     setPlanSeleccionado(plan);
                   }
                 }}
               >
-                {plan.popular && <span className="susc-badge-popular">Más popular</span>}
+                {plan.popular && (
+                  <span className="susc-badge-popular">
+                    Más popular
+                  </span>
+                )}
 
                 <div className="susc-plan-top">
-                  <span className="susc-plan-nombre">{plan.nombre.replace("Plan ", "Plan ")}</span>
+                  <span className="susc-plan-nombre">
+                    {plan.nombre}
+                  </span>
+
                   <span className="susc-plan-precio">
                     $ {plan.precio.toFixed(2)}
-                    <small>{sufijoDuracion(plan.duracion)}</small>
+
+                    <small>
+                      {sufijoDuracion(plan.duracion)}
+                    </small>
                   </span>
                 </div>
 
                 <p className="susc-plan-desc">
-                  {plan.caracteristicas.slice(0, 2).join(", ")}
+                  {plan.caracteristicas
+                    .slice(0, 2)
+                    .join(", ")}
                 </p>
 
-                <span className="susc-plan-check" aria-hidden="true">
+                <span
+                  className="susc-plan-check"
+                  aria-hidden="true"
+                >
                   <i className="bi bi-check-lg"></i>
                 </span>
               </div>
@@ -158,33 +286,74 @@ const Suscripcion = () => {
           <button
             type="button"
             className={`susc-btn susc-btn-primary ${
-              btnActivo === "primario" ? "is-active" : "is-inactive"
+              btnActivo === "primario"
+                ? "is-active"
+                : "is-inactive"
             }`}
-            onClick={() => handleSuscripcion(planSeleccionado)}
-            onMouseEnter={() => setBtnActivo("primario")}
-            onFocus={() => setBtnActivo("primario")}
+            onClick={() =>
+              handleSuscripcion(planSeleccionado)
+            }
+            onMouseEnter={() =>
+              setBtnActivo("primario")
+            }
+            onFocus={() =>
+              setBtnActivo("primario")
+            }
             disabled={loading}
           >
-            <span className="susc-btn-sheen" aria-hidden="true"></span>
+            <span
+              className="susc-btn-sheen"
+              aria-hidden="true"
+            ></span>
+
             <span className="susc-btn-label">
-              {loading ? <Spinner animation="border" size="sm" /> : "Suscribirse y continuar"}
+              {loading ? (
+                <>
+                  <Spinner
+                    animation="border"
+                    size="sm"
+                    className="me-2"
+                  />
+                  Entrando...
+                </>
+              ) : (
+                "Suscribirse y continuar"
+              )}
             </span>
           </button>
 
           <button
             type="button"
             className={`susc-btn susc-btn-secondary ${
-              btnActivo === "secundario" ? "is-active" : "is-inactive"
+              btnActivo === "secundario"
+                ? "is-active"
+                : "is-inactive"
             }`}
-            onClick={() => navigate("/seleccion-rol")}
-            onMouseEnter={() => setBtnActivo("secundario")}
-            onMouseLeave={() => setBtnActivo("primario")}
-            onFocus={() => setBtnActivo("secundario")}
-            onBlur={() => setBtnActivo("primario")}
+            onClick={() =>
+              navigate("/seleccion-rol")
+            }
+            onMouseEnter={() =>
+              setBtnActivo("secundario")
+            }
+            onMouseLeave={() =>
+              setBtnActivo("primario")
+            }
+            onFocus={() =>
+              setBtnActivo("secundario")
+            }
+            onBlur={() =>
+              setBtnActivo("primario")
+            }
             disabled={loading}
           >
-            <span className="susc-btn-sheen" aria-hidden="true"></span>
-            <span className="susc-btn-label">Cancela cuando quieras</span>
+            <span
+              className="susc-btn-sheen"
+              aria-hidden="true"
+            ></span>
+
+            <span className="susc-btn-label">
+              Cancelar
+            </span>
           </button>
         </div>
       </div>
