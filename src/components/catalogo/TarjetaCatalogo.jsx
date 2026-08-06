@@ -1,421 +1,307 @@
 import React from "react";
 import {
-    Badge,
-    Button,
-    Carousel,
-    OverlayTrigger,
-    Tooltip
+  Card,
+  Button,
+  OverlayTrigger,
+  Tooltip,
+  Carousel
 } from "react-bootstrap";
 
-const obtenerImagenes = (
-    imagenUrl
-) => {
-    if (
-        Array.isArray(
-            imagenUrl
-        )
-    ) {
-        return imagenUrl.filter(
-            Boolean
-        );
-    }
-
-    if (imagenUrl) {
-        return [imagenUrl];
-    }
-
-    return [];
-};
-
 const TarjetaCatalogo = ({
-    producto,
-    abrirModalDetalles,
-    abrirModalContacto,
-    agregarAlCarrito,
-    miTiendaId
+  producto,
+  abrirModalDetalles,
+  abrirModalContacto,
+  agregarAlCarrito,
+  miTiendaId
 }) => {
-    const precioVenta =
-        Number(
-            producto.precio_venta ||
-                0
-        );
+  const precioVenta = Number(
+    producto.precio_venta || 0
+  );
 
-    const precioOriginal =
-        Number(
-            producto.precio_original ||
-                0
-        );
+  const precioOriginal = Number(
+    producto.precio_original || 0
+  );
 
-    const stock =
-        Number(
-            producto.stock ||
-                0
-        );
+  const stock = Number(
+    producto.stock || 0
+  );
 
-    const esOferta =
-        precioOriginal >
-        precioVenta;
+  const esOferta =
+    precioOriginal > 0 &&
+    precioOriginal > precioVenta;
 
-    const porcentajeDescuento =
-        esOferta &&
-        precioOriginal > 0
-            ? Math.round(
-                  (
-                      1 -
-                      precioVenta /
-                          precioOriginal
-                  ) *
-                      100
-              )
-            : 0;
+  const porcentajeDescuento = esOferta
+    ? Math.round(
+        (1 - precioVenta / precioOriginal) * 100
+      )
+    : 0;
 
-    const imagenes =
-        obtenerImagenes(
-            producto.imagen_url
-        );
+  const esMiProducto =
+    producto.id_tienda === miTiendaId;
 
-    const tieneMultiplesImagenes =
-        imagenes.length > 1;
+  const estaAgotado = stock <= 0;
 
-    const esMiProducto =
-        producto.id_tienda ===
-        miTiendaId;
+  const tieneTallas =
+    Array.isArray(producto.tallas) &&
+    producto.tallas.length > 0;
 
-    const estaAgotado =
-        stock <= 0;
+  const tieneColores =
+    Array.isArray(producto.colores) &&
+    producto.colores.length > 0;
 
-    const tieneTallas =
-        Array.isArray(
-            producto.tallas
-        ) &&
-        producto.tallas.length > 0;
+  const tieneVariantes =
+    tieneTallas || tieneColores;
 
-    const tieneColores =
-        Array.isArray(
-            producto.colores
-        ) &&
-        producto.colores.length > 0;
+  const imagenes = Array.isArray(
+    producto.imagen_url
+  )
+    ? producto.imagen_url.filter(Boolean)
+    : producto.imagen_url
+      ? [producto.imagen_url]
+      : [];
 
-    const tieneVariantes =
-        tieneTallas ||
-        tieneColores;
+  const tieneMultiplesImagenes =
+    imagenes.length > 1;
 
-    const manejarCompra = (
-        event
-    ) => {
-        event.stopPropagation();
+  const manejarCompra = (event) => {
+    event.stopPropagation();
 
-        if (
-            esMiProducto ||
-            estaAgotado
-        ) {
-            return;
-        }
+    if (esMiProducto) {
+      alert(
+        "No puedes comprar tus propios productos."
+      );
+      return;
+    }
 
-        if (tieneVariantes) {
-            abrirModalDetalles(
-                producto
-            );
+    if (estaAgotado) {
+      alert("Este producto está agotado.");
+      return;
+    }
 
-            return;
-        }
+    if (tieneVariantes) {
+      abrirModalDetalles(producto);
+      return;
+    }
 
-        agregarAlCarrito(
-            producto
-        );
-    };
+    agregarAlCarrito(producto);
+  };
 
-    const textoBoton =
-        esMiProducto
-            ? "Mi producto"
-            : estaAgotado
-              ? "Agotado"
-              : tieneVariantes
-                ? "Seleccionar opciones"
-                : "Añadir al carrito";
+  return (
+    <Card className="h-100 border-0 shadow-sm modern-product-card bg-white overflow-hidden">
+      <div className="modern-card-img-wrapper position-relative">
+        <div
+          className="modern-card-img-container"
+          onClick={() =>
+            abrirModalDetalles(producto)
+          }
+        >
+          {tieneMultiplesImagenes ? (
+            <Carousel
+              fade
+              indicators={false}
+              controls={false}
+              interval={4000}
+              pause={false}
+              className="modern-card-carousel"
+            >
+              {imagenes.map((url, indice) => (
+                <Carousel.Item key={url}>
+                  <img
+                    src={url}
+                    alt={`${producto.nombre_producto} ${
+                      indice + 1
+                    }`}
+                    className="modern-card-img"
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.src =
+                        "https://via.placeholder.com/500?text=Sin+Imagen";
+                    }}
+                  />
+                </Carousel.Item>
+              ))}
+            </Carousel>
+          ) : (
+            <Card.Img
+              variant="top"
+              src={
+                imagenes[0] ||
+                "https://via.placeholder.com/500?text=Sin+Imagen"
+              }
+              alt={producto.nombre_producto}
+              className="modern-card-img"
+              loading="lazy"
+              onError={(event) => {
+                event.currentTarget.src =
+                  "https://via.placeholder.com/500?text=Sin+Imagen";
+              }}
+            />
+          )}
 
-    const iconoBoton =
-        esMiProducto
-            ? "shop"
-            : estaAgotado
-              ? "x-circle"
-              : tieneVariantes
-                ? "sliders"
-                : "cart-plus";
+          <div className="modern-card-overlay" />
+        </div>
 
-    return (
-        <article className="catalog-product-card">
-            <div className="catalog-product-media">
-                <button
-                    type="button"
-                    className="catalog-product-image-button"
-                    onClick={() =>
-                        abrirModalDetalles(
-                            producto
-                        )
-                    }
-                    aria-label={`Ver ${producto.nombre_producto}`}
-                >
-                    {tieneMultiplesImagenes ? (
-                        <Carousel
-                            fade
-                            indicators={
-                                false
-                            }
-                            controls={
-                                false
-                            }
-                            interval={
-                                4000
-                            }
-                            pause={
-                                false
-                            }
-                            className="catalog-product-carousel"
-                        >
-                            {imagenes.map(
-                                (
-                                    imagen,
-                                    indice
-                                ) => (
-                                    <Carousel.Item
-                                        key={`${producto.id_producto}-${indice}`}
-                                    >
-                                        <img
-                                            src={
-                                                imagen
-                                            }
-                                            alt={`${producto.nombre_producto} ${indice + 1}`}
-                                            className="catalog-product-image"
-                                            loading="lazy"
-                                            onError={(
-                                                event
-                                            ) => {
-                                                event.currentTarget.src =
-                                                    "https://via.placeholder.com/600x700?text=Sin+Imagen";
-                                            }}
-                                        />
-                                    </Carousel.Item>
-                                )
-                            )}
-                        </Carousel>
-                    ) : (
-                        <img
-                            src={
-                                imagenes[0] ||
-                                "https://via.placeholder.com/600x700?text=Sin+Imagen"
-                            }
-                            alt={
-                                producto.nombre_producto
-                            }
-                            className="catalog-product-image"
-                            loading="lazy"
-                            onError={(
-                                event
-                            ) => {
-                                event.currentTarget.src =
-                                    "https://via.placeholder.com/600x700?text=Sin+Imagen";
-                            }}
-                        />
-                    )}
+        <div className="modern-card-badges">
+          {esOferta && (
+            <span className="catalog-desktop-discount-ribbon">
+              -{porcentajeDescuento}%
+            </span>
+          )}
 
-                    <span className="catalog-product-image-overlay"></span>
-                </button>
+          {estaAgotado && (
+            <span className="catalog-desktop-soldout-label">
+              Agotado
+            </span>
+          )}
+        </div>
 
-                <div className="catalog-product-badges">
-                    {esOferta && (
-                        <Badge className="catalog-badge catalog-badge-discount">
-                            <i className="bi bi-lightning-fill"></i>
-                            -{porcentajeDescuento}%
-                        </Badge>
-                    )}
+        <div className="modern-card-actions">
+          <OverlayTrigger
+            placement="top"
+            overlay={
+              <Tooltip>Ver detalles</Tooltip>
+            }
+          >
+            <Button
+              variant="white"
+              className="action-btn shadow-sm"
+              onClick={() =>
+                abrirModalDetalles(producto)
+              }
+            >
+              <i className="bi bi-eye" />
+            </Button>
+          </OverlayTrigger>
 
-                    {estaAgotado && (
-                        <Badge className="catalog-badge catalog-badge-soldout">
-                            Agotado
-                        </Badge>
-                    )}
+          <OverlayTrigger
+            placement="top"
+            overlay={
+              <Tooltip>
+                Contactar vendedor
+              </Tooltip>
+            }
+          >
+            <Button
+              variant="white"
+              className="action-btn shadow-sm"
+              onClick={() =>
+                abrirModalContacto(producto)
+              }
+            >
+              <i className="bi bi-chat-dots" />
+            </Button>
+          </OverlayTrigger>
+        </div>
+      </div>
 
-                    {!estaAgotado &&
-                        stock <= 5 && (
-                            <Badge className="catalog-badge catalog-badge-stock">
-                                Últimos {stock}
-                            </Badge>
-                        )}
-                </div>
+      <Card.Body className="d-flex flex-column p-3 pt-4">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <span className="modern-category-tag">
+            {producto.categorias
+              ?.nombre_categoria || "General"}
+          </span>
 
-                <div className="catalog-product-actions">
-                    <OverlayTrigger
-                        placement="left"
-                        overlay={
-                            <Tooltip>
-                                Ver detalles
-                            </Tooltip>
-                        }
-                    >
-                        <Button
-                            type="button"
-                            className="catalog-action-button"
-                            onClick={() =>
-                                abrirModalDetalles(
-                                    producto
-                                )
-                            }
-                        >
-                            <i className="bi bi-eye"></i>
-                        </Button>
-                    </OverlayTrigger>
+          <span className="modern-store-name text-truncate">
+            <i className="bi bi-shop me-1" />
 
-                    <OverlayTrigger
-                        placement="left"
-                        overlay={
-                            <Tooltip>
-                                Contactar vendedor
-                            </Tooltip>
-                        }
-                    >
-                        <Button
-                            type="button"
-                            className="catalog-action-button"
-                            onClick={() =>
-                                abrirModalContacto(
-                                    producto
-                                )
-                            }
-                        >
-                            <i className="bi bi-chat-dots"></i>
-                        </Button>
-                    </OverlayTrigger>
-                </div>
+            {producto.tiendas?.perfiles?.[0]
+              ?.usuarios?.username ||
+              "Tienda Local"}
+          </span>
+        </div>
+
+        <Card.Title
+          className="modern-product-title mb-3"
+          onClick={() =>
+            abrirModalDetalles(producto)
+          }
+        >
+          {producto.nombre_producto}
+        </Card.Title>
+
+        <div className="mt-auto">
+          <div className="d-flex align-items-baseline gap-2 mb-3">
+            <span className="modern-price">
+              <small className="me-1">
+                C$
+              </small>
+
+              {precioVenta.toFixed(2)}
+            </span>
+
+            {esOferta && (
+              <span className="modern-old-price">
+                C${precioOriginal.toFixed(2)}
+              </span>
+            )}
+          </div>
+
+          {!estaAgotado && stock <= 5 && (
+            <div className="modern-stock-alert mb-3">
+              <div
+                className="progress"
+                style={{ height: "4px" }}
+              >
+                <div
+                  className="progress-bar bg-warning"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (stock / 10) * 100
+                    )}%`
+                  }}
+                />
+              </div>
+
+              <small className="text-warning fw-bold mt-1 d-block">
+                <i className="bi bi-fire me-1" />
+                ¡Solo quedan {stock}!
+              </small>
             </div>
+          )}
 
-            <div className="catalog-product-content">
-                <div className="catalog-product-meta">
-                    <span className="catalog-product-category">
-                        {producto
-                            .categorias
-                            ?.nombre_categoria ||
-                            "General"}
-                    </span>
+          <Button
+            variant={
+              esMiProducto
+                ? "outline-secondary"
+                : estaAgotado
+                  ? "secondary"
+                  : "primary"
+            }
+            className={`w-100 modern-main-btn ${
+              !estaAgotado && !esMiProducto
+                ? "shadow-sm"
+                : ""
+            }`}
+            onClick={manejarCompra}
+            disabled={
+              esMiProducto || estaAgotado
+            }
+          >
+            <i
+              className={`bi bi-${
+                esMiProducto
+                  ? "shop"
+                  : estaAgotado
+                    ? "x-circle"
+                    : tieneVariantes
+                      ? "sliders"
+                      : "cart-plus"
+              } me-2`}
+            />
 
-                    <span className="catalog-product-store">
-                        <i className="bi bi-shop"></i>
-
-                        {producto
-                            .tiendas
-                            ?.nombre_tienda ||
-                            producto
-                                .tiendas
-                                ?.perfiles?.[0]
-                                ?.usuarios
-                                ?.username ||
-                            "Tienda local"}
-                    </span>
-                </div>
-
-                <button
-                    type="button"
-                    className="catalog-product-title"
-                    onClick={() =>
-                        abrirModalDetalles(
-                            producto
-                        )
-                    }
-                >
-                    {
-                        producto.nombre_producto
-                    }
-                </button>
-
-                {producto.descripcion && (
-                    <p className="catalog-product-description">
-                        {
-                            producto.descripcion
-                        }
-                    </p>
-                )}
-
-                <div className="catalog-product-bottom">
-                    <div className="catalog-product-price-row">
-                        <span className="catalog-product-price">
-                            <small>
-                                C$
-                            </small>
-
-                            {precioVenta.toFixed(
-                                2
-                            )}
-                        </span>
-
-                        {esOferta && (
-                            <span className="catalog-product-old-price">
-                                C$
-                                {precioOriginal.toFixed(
-                                    2
-                                )}
-                            </span>
-                        )}
-                    </div>
-
-                    {!estaAgotado &&
-                        stock <= 5 && (
-                            <div className="catalog-stock-container">
-                                <div className="catalog-stock-bar">
-                                    <span
-                                        style={{
-                                            width: `${Math.min(
-                                                Math.max(
-                                                    (
-                                                        stock /
-                                                        10
-                                                    ) *
-                                                        100,
-                                                    8
-                                                ),
-                                                100
-                                            )}%`
-                                        }}
-                                    ></span>
-                                </div>
-
-                                <small>
-                                    <i className="bi bi-fire"></i>
-                                    Solo quedan{" "}
-                                    {stock}
-                                </small>
-                            </div>
-                        )}
-
-                    <button
-                        type="button"
-                        className={`catalog-add-button ${
-                            esMiProducto ||
-                            estaAgotado
-                                ? "disabled"
-                                : ""
-                        }`}
-                        onClick={
-                            manejarCompra
-                        }
-                        disabled={
-                            esMiProducto ||
-                            estaAgotado
-                        }
-                    >
-                        <i
-                            className={`bi bi-${iconoBoton}`}
-                        ></i>
-
-                        <span>
-                            {
-                                textoBoton
-                            }
-                        </span>
-                    </button>
-                </div>
-            </div>
-        </article>
-    );
+            {esMiProducto
+              ? "Mi producto"
+              : estaAgotado
+                ? "Agotado"
+                : tieneVariantes
+                  ? "Seleccionar opciones"
+                  : "Añadir al carrito"}
+          </Button>
+        </div>
+      </Card.Body>
+    </Card>
+  );
 };
 
 export default TarjetaCatalogo;

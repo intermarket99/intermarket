@@ -6662,3 +6662,202 @@ body {
     transition: none;
   }
 }
+
+/* =========================================================
+   CINTA DE DESCUENTO VERTICAL
+   ========================================================= */
+
+/* Asegura que la cinta se posicione sobre la imagen */
+
+.catalog-mobile-media,
+.modern-card-img-wrapper {
+  position: relative !important;
+  overflow: hidden;
+}
+
+/* =========================================================
+   CINTA MÓVIL
+   ========================================================= */
+
+.catalog-mobile-badges {
+  position: absolute !important;
+  top: 0 !important;
+  right: 9px !important;
+  left: auto !important;
+  z-index: 50 !important;
+
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+
+  pointer-events: none;
+}
+
+.catalog-discount-ribbon {
+  position: relative;
+
+  min-width: 25px;
+  padding: 7px 4px 14px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 0;
+
+  color: #ffffff;
+  background: #ed1118;
+
+  box-shadow:
+    0 4px 9px rgba(120, 0, 5, 0.24);
+
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 1;
+
+  text-align: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.catalog-discount-ribbon::after {
+  content: "";
+
+  position: absolute;
+  right: 0;
+  bottom: -9px;
+
+  width: 0;
+  height: 0;
+
+  border-top: 9px solid #ed1118;
+  border-right: 12.5px solid transparent;
+  border-left: 12.5px solid transparent;
+}
+
+.catalog-soldout-label {
+  margin-top: 12px;
+  padding: 4px 7px;
+
+  border-radius: 999px;
+
+  color: #ffffff;
+  background: rgba(31, 41, 55, 0.92);
+
+  font-size: 0.52rem;
+  font-weight: 800;
+}
+
+/* =========================================================
+   CINTA ESCRITORIO
+   ========================================================= */
+
+.modern-card-badges {
+  position: absolute !important;
+  top: 0 !important;
+  right: 12px !important;
+  left: auto !important;
+  z-index: 50 !important;
+
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+
+  pointer-events: none;
+}
+
+.catalog-desktop-discount-ribbon {
+  position: relative;
+
+  min-width: 28px;
+  padding: 8px 5px 15px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 0;
+  border-radius: 0;
+
+  color: #ffffff;
+  background: #ed1118;
+
+  box-shadow:
+    0 5px 11px rgba(120, 0, 5, 0.24);
+
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1;
+
+  text-align: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.catalog-desktop-discount-ribbon::after {
+  content: "";
+
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+
+  width: 0;
+  height: 0;
+
+  border-top: 10px solid #ed1118;
+  border-right: 14px solid transparent;
+  border-left: 14px solid transparent;
+}
+
+.catalog-desktop-soldout-label {
+  margin-top: 13px;
+  padding: 5px 8px;
+
+  border-radius: 999px;
+
+  color: #ffffff;
+  background: rgba(31, 41, 55, 0.92);
+
+  font-size: 0.57rem;
+  font-weight: 800;
+}
+
+/* =========================================================
+   AJUSTES RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 575.98px) {
+  .catalog-mobile-badges {
+    right: 7px !important;
+  }
+
+  .catalog-discount-ribbon {
+    min-width: 23px;
+    padding: 6px 3px 13px;
+
+    font-size: 0.53rem;
+  }
+
+  .catalog-discount-ribbon::after {
+    bottom: -8px;
+
+    border-top-width: 8px;
+    border-right-width: 11.5px;
+    border-left-width: 11.5px;
+  }
+}
+
+@media (max-width: 350px) {
+  .catalog-discount-ribbon {
+    min-width: 21px;
+    font-size: 0.48rem;
+  }
+
+  .catalog-discount-ribbon::after {
+    border-right-width: 10.5px;
+    border-left-width: 10.5px;
+  }
+}
