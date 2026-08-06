@@ -1,508 +1,1093 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Badge, Spinner, Button, Form, InputGroup } from 'react-bootstrap';
-import { supabase } from '../database/supabaseconfig';
-import TarjetaCatalogoMovile from '../components/catalogo/TarjetaCatalogoMovile';
-import TarjetaCatalogo from '../components/catalogo/TarjetaCatalogo';
-import CarritoModal from '../components/catalogo/CarritoModal';
-import ModalMensaje from '../components/catalogo/ModalMensaje';
-import ModalDetalleProducto from '../components/catalogo/ModalDetalleProducto';
-import ModalPostCompra from '../components/catalogo/ModalPostCompra';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from "react";
+import {
+    Container,
+    Row,
+    Col,
+    Spinner
+} from "react-bootstrap";
+
+import { supabase } from "../database/supabaseconfig";
+import { useAuth } from "../context/AuthContext";
+
+import TarjetaCatalogo from "../components/catalogo/TarjetaCatalogo";
+import TarjetaCatalogoMovile from "../components/catalogo/TarjetaCatalogoMovile";
+import CarritoModal from "../components/catalogo/CarritoModal";
+import ModalMensaje from "../components/catalogo/ModalMensaje";
+import ModalDetalleProducto from "../components/catalogo/ModalDetalleProducto";
+import ModalPostCompra from "../components/catalogo/ModalPostCompra";
 
 function Catalogo() {
     const { user } = useAuth();
+
     const [productos, setProductos] = useState([]);
+    const [categorias, setCategorias] = useState([]);
+
     const [cargando, setCargando] = useState(true);
     const [cargandoMas, setCargandoMas] = useState(false);
+
     const [pagina, setPagina] = useState(0);
     const [hayMas, setHayMas] = useState(true);
+
+    const [busqueda, setBusqueda] = useState("");
+    const [busquedaDebounced, setBusquedaDebounced] = useState("");
+
+    const [sugerencias, setSugerencias] = useState([]);
+    const [mostrarSugerencias, setMostrarSugerencias] =
+        useState(false);
+
+    const [mostrarSoloOfertas, setMostrarSoloOfertas] =
+        useState(false);
+
+    const [categoriaSeleccionada, setCategoriaSeleccionada] =
+        useState(null);
+
     const [carrito, setCarrito] = useState([]);
     const [mostrarCarrito, setMostrarCarrito] = useState(false);
-    const [busqueda, setBusqueda] = useState('');
-    const [busquedaDebounced, setBusquedaDebounced] = useState('');
-    const [sugerencias, setSugerencias] = useState([]);
-    const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
-    const [mostrarSoloOfertas, setMostrarSoloOfertas] = useState(false);
-    const [mostrarModalMensaje, setMostrarModalMensaje] = useState(false);
-    const [mostrarModalDetalle, setMostrarModalDetalle] = useState(false);
-    const [mostrarModalPostCompra, setMostrarModalPostCompra] = useState(false);
-    const [itemsCompradosRecientemente, setItemsCompradosRecientemente] = useState([]);
-    const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+
+    const [mostrarModalMensaje, setMostrarModalMensaje] =
+        useState(false);
+
+    const [mostrarModalDetalle, setMostrarModalDetalle] =
+        useState(false);
+
+    const [mostrarModalPostCompra, setMostrarModalPostCompra] =
+        useState(false);
+
+    const [productoSeleccionado, setProductoSeleccionado] =
+        useState(null);
+
+    const [
+        itemsCompradosRecientemente,
+        setItemsCompradosRecientemente
+    ] = useState([]);
+
     const [miTiendaId, setMiTiendaId] = useState(null);
-    const [esMovil, setEsMovil] = useState(window.innerWidth < 768);
-    const [categorias, setCategorias] = useState([]);
-    const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+
+    const [esMovil, setEsMovil] = useState(
+        window.innerWidth < 768
+    );
 
     const ITEMS_POR_PAGINA = 12;
 
     useEffect(() => {
-        const handleResize = () => setEsMovil(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        const manejarResize = () => {
+            setEsMovil(window.innerWidth < 768);
+        };
+
+        window.addEventListener("resize", manejarResize);
+
+        return () => {
+            window.removeEventListener(
+                "resize",
+                manejarResize
+            );
+        };
     }, []);
 
-    // Debounce para la búsqueda y sugerencias
     useEffect(() => {
-        const fetchSugerencias = async () => {
-            if (busqueda.trim().length > 1) {
-                const { data } = await supabase
-                    .from('productos')
-                    .select('id_producto, nombre_producto, imagen_url, precio_venta')
-                    .ilike('nombre_producto', `%${busqueda}%`)
-                    .limit(5);
-                setSugerencias(data || []);
-                setMostrarSugerencias(true);
-            } else {
-                setSugerencias([]);
-                setMostrarSugerencias(false);
-            }
-        };
+        const carritoGuardado = JSON.parse(
+            localStorage.getItem("carrito") || "[]"
+        );
 
-        const timer = setTimeout(() => {
-            setBusquedaDebounced(busqueda);
-            setPagina(0); // Resetear a la primera página cuando cambia la búsqueda
-        }, 500);
-
-        fetchSugerencias();
-
-        return () => clearTimeout(timer);
-    }, [busqueda]);
-
-    useEffect(() => {
-        const inicializarDatos = async () => {
-            setCargando(true);
-            try {
-                // Paralelizar la carga inicial de productos, id de la tienda y categorías
-                const promesas = [
-                    cargarProductos(0, true),
-                    supabase.from('categorias').select('*').order('nombre_categoria', { ascending: true })
-                ];
-                
-                if (user) {
-                    promesas.push(
-                        supabase
-                            .from('perfiles')
-                            .select('id_tienda')
-                            .eq('id_usuario', user.id)
-                            .maybeSingle()
-                            .then(({ data }) => {
-                                if (data?.id_tienda) setMiTiendaId(data.id_tienda);
-                            })
-                    );
-                }
-                
-                const [_, catRes] = await Promise.all(promesas);
-                if (catRes.data) setCategorias(catRes.data);
-            } catch (error) {
-                console.error("Error al inicializar catálogo:", error);
-            } finally {
-                setCargando(false);
-            }
-        };
-
-        inicializarDatos();
-
-        const carritoGuardado = JSON.parse(localStorage.getItem('carrito') || '[]');
         setCarrito(carritoGuardado);
 
-        const handleAbrirCarrito = () => {
+        const abrirCarrito = () => {
             setMostrarCarrito(true);
         };
 
-        window.addEventListener("abrirCarrito", handleAbrirCarrito);
+        window.addEventListener(
+            "abrirCarrito",
+            abrirCarrito
+        );
 
         return () => {
-            window.removeEventListener("abrirCarrito", handleAbrirCarrito);
+            window.removeEventListener(
+                "abrirCarrito",
+                abrirCarrito
+            );
         };
-    }, [user, busquedaDebounced, mostrarSoloOfertas, categoriaSeleccionada]);
+    }, []);
 
-    const cargarProductos = async (page = 0, esNuevaCarga = false) => {
-        try {
-            if (!esNuevaCarga) setCargandoMas(true);
-            
-            const from = page * ITEMS_POR_PAGINA;
-            const to = from + ITEMS_POR_PAGINA - 1;
+    useEffect(() => {
+        const temporizador = setTimeout(() => {
+            setBusquedaDebounced(
+                busqueda.trim()
+            );
 
-            let query = supabase
+            setPagina(0);
+        }, 450);
+
+        return () => {
+            clearTimeout(temporizador);
+        };
+    }, [busqueda]);
+
+    useEffect(() => {
+        const cargarSugerencias = async () => {
+            if (busqueda.trim().length < 2) {
+                setSugerencias([]);
+                setMostrarSugerencias(false);
+                return;
+            }
+
+            const { data, error } = await supabase
                 .from("productos")
-                .select("*, categorias(nombre_categoria), tiendas(perfiles(usuarios(username)))")
-                .order("creado_en", { ascending: false })
-                .range(from, to);
+                .select(
+                    "id_producto, nombre_producto, imagen_url, precio_venta"
+                )
+                .ilike(
+                    "nombre_producto",
+                    `%${busqueda.trim()}%`
+                )
+                .limit(5);
 
-            // Filtro de búsqueda en el servidor
-            if (busquedaDebounced) {
-                query = query.ilike('nombre_producto', `%${busquedaDebounced}%`);
+            if (error) {
+                console.error(
+                    "Error cargando sugerencias:",
+                    error
+                );
+
+                return;
             }
 
-            // Filtro de categoría en el servidor
-            if (categoriaSeleccionada) {
-                query = query.eq('categoria_id', categoriaSeleccionada);
-            }
+            setSugerencias(data || []);
+            setMostrarSugerencias(true);
+        };
 
-            // Filtro de ofertas en el servidor
-            if (mostrarSoloOfertas) {
-                query = query.gt('precio_original', 0).not('precio_original', 'is', null);
-            }
+        cargarSugerencias();
+    }, [busqueda]);
 
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            if (esNuevaCarga) {
-                setProductos(data || []);
+    const cargarProductos = async (
+        paginaSolicitada = 0,
+        nuevaCarga = false
+    ) => {
+        try {
+            if (nuevaCarga) {
+                setCargando(true);
             } else {
-                setProductos(prev => [...prev, ...(data || [])]);
+                setCargandoMas(true);
             }
 
-            setHayMas(data?.length === ITEMS_POR_PAGINA);
-            setPagina(page);
-        } catch (err) {
-            console.error("Error al cargar productos:", err);
-            throw err;
+            const desde =
+                paginaSolicitada *
+                ITEMS_POR_PAGINA;
+
+            const hasta =
+                desde +
+                ITEMS_POR_PAGINA -
+                1;
+
+            let consulta = supabase
+                .from("productos")
+                .select(`
+                    *,
+                    categorias (
+                        nombre_categoria
+                    ),
+                    tiendas (
+                        nombre_tienda,
+                        perfiles (
+                            usuarios (
+                                username
+                            )
+                        )
+                    )
+                `)
+                .order(
+                    "creado_en",
+                    {
+                        ascending: false
+                    }
+                )
+                .range(desde, hasta);
+
+            if (busquedaDebounced) {
+                consulta = consulta.ilike(
+                    "nombre_producto",
+                    `%${busquedaDebounced}%`
+                );
+            }
+
+            if (categoriaSeleccionada) {
+                consulta = consulta.eq(
+                    "categoria_id",
+                    categoriaSeleccionada
+                );
+            }
+
+            if (mostrarSoloOfertas) {
+                consulta = consulta
+                    .not(
+                        "precio_original",
+                        "is",
+                        null
+                    )
+                    .gt(
+                        "precio_original",
+                        0
+                    );
+            }
+
+            const { data, error } =
+                await consulta;
+
+            if (error) {
+                throw error;
+            }
+
+            const resultados =
+                data || [];
+
+            if (nuevaCarga) {
+                setProductos(resultados);
+            } else {
+                setProductos(
+                    (anteriores) => [
+                        ...anteriores,
+                        ...resultados
+                    ]
+                );
+            }
+
+            setHayMas(
+                resultados.length ===
+                    ITEMS_POR_PAGINA
+            );
+
+            setPagina(
+                paginaSolicitada
+            );
+        } catch (error) {
+            console.error(
+                "Error al cargar productos:",
+                error
+            );
         } finally {
-            if (!esNuevaCarga) setCargandoMas(false);
+            setCargando(false);
+            setCargandoMas(false);
         }
     };
 
-    const cargarSiguientePagina = () => {
-        if (!cargandoMas && hayMas) {
-            cargarProductos(pagina + 1);
+    const cargarCategorias = async () => {
+        const { data, error } = await supabase
+            .from("categorias")
+            .select("*")
+            .order(
+                "nombre_categoria",
+                {
+                    ascending: true
+                }
+            );
+
+        if (error) {
+            console.error(
+                "Error cargando categorías:",
+                error
+            );
+
+            return;
         }
+
+        setCategorias(data || []);
     };
 
-    const abrirModalContacto = (producto) => {
-        setProductoSeleccionado(producto);
+    const cargarTiendaUsuario = async () => {
+        if (!user?.id) {
+            setMiTiendaId(null);
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from("perfiles")
+            .select("id_tienda")
+            .eq(
+                "id_usuario",
+                user.id
+            )
+            .maybeSingle();
+
+        if (error) {
+            console.error(
+                "Error cargando tienda:",
+                error
+            );
+
+            return;
+        }
+
+        setMiTiendaId(
+            data?.id_tienda || null
+        );
+    };
+
+    useEffect(() => {
+        const inicializar = async () => {
+            await Promise.all([
+                cargarCategorias(),
+                cargarTiendaUsuario()
+            ]);
+
+            await cargarProductos(
+                0,
+                true
+            );
+        };
+
+        inicializar();
+    }, [
+        user?.id,
+        busquedaDebounced,
+        mostrarSoloOfertas,
+        categoriaSeleccionada
+    ]);
+
+    const abrirModalContacto = (
+        producto
+    ) => {
+        setProductoSeleccionado(
+            producto
+        );
+
         setMostrarModalMensaje(true);
     };
 
-    const abrirModalDetalles = (producto) => {
-        setProductoSeleccionado(producto);
+    const abrirModalDetalles = (
+        producto
+    ) => {
+        setProductoSeleccionado(
+            producto
+        );
+
         setMostrarModalDetalle(true);
     };
 
-    const handleCompraExitosa = (itemsComprados) => {
-        setItemsCompradosRecientemente(itemsComprados);
+    const handleCompraExitosa = (
+        itemsComprados
+    ) => {
+        setItemsCompradosRecientemente(
+            itemsComprados
+        );
+
         setMostrarModalPostCompra(true);
     };
 
-    const agregarAlCarrito = (producto) => {
-        // Buscar si ya existe el mismo producto con la misma talla y color
-        const existe = carrito.find(item => 
-            item.id_producto === producto.id_producto && 
-            item.talla_seleccionada === producto.talla_seleccionada && 
-            item.color_seleccionado === producto.color_seleccionado
+    const actualizarCarritoGlobal = (
+        nuevoCarrito
+    ) => {
+        setCarrito(nuevoCarrito);
+
+        localStorage.setItem(
+            "carrito",
+            JSON.stringify(nuevoCarrito)
         );
 
-        let nuevoCarrito;
-        if (existe) {
-            nuevoCarrito = carrito.map(item =>
-                (item.id_producto === producto.id_producto && 
-                 item.talla_seleccionada === producto.talla_seleccionada && 
-                 item.color_seleccionado === producto.color_seleccionado)
-                    ? { ...item, cantidad: item.cantidad + 1 }
-                    : item
-            );
-        } else {
-            nuevoCarrito = [...carrito, { ...producto, cantidad: 1 }];
-        }
-        setCarrito(nuevoCarrito);
-        localStorage.setItem('carrito', JSON.stringify(nuevoCarrito));
-
-        // Toast notification (premium style)
-        const toast = document.createElement('div');
-        toast.className = 'position-fixed bottom-0 end-0 p-3 p-md-4 custom-toast-container';
-        toast.style.zIndex = '9999';
-        toast.style.width = window.innerWidth < 576 ? '100%' : 'auto';
-        
-        const infoVariante = [producto.talla_seleccionada, producto.color_seleccionado].filter(Boolean).join(' / ');
-        
-        toast.innerHTML = `
-            <div class="alert shadow-lg border-0 d-flex align-items-center mb-0" style="background: var(--color-primario); color: white; border-radius: 12px; min-width: ${window.innerWidth < 576 ? 'calc(100vw - 32px)' : '300px'};">
-                <i class="bi bi-cart-check-fill fs-4 me-3"></i>
-                <div style="overflow: hidden;">
-                    <strong class="d-block text-truncate">Añadido al carrito</strong>
-                    <small class="opacity-75 d-block text-truncate" style="max-width: 200px;">
-                        ${producto.nombre_producto} ${infoVariante ? `(${infoVariante})` : ''}
-                    </small>
-                </div>
-                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add('fade');
-            setTimeout(() => toast.remove(), 500);
-        }, 3000);
+        window.dispatchEvent(
+            new Event(
+                "carritoActualizado"
+            )
+        );
     };
 
-    const totalCarrito = carrito.reduce((total, item) => {
-        return total + (parseFloat(item.precio_venta || 0) * (item.cantidad || 1));
-    }, 0);
+    const mostrarToastCarrito = (
+        producto
+    ) => {
+        const toast =
+            document.createElement(
+                "div"
+            );
+
+        toast.className =
+            "catalogo-toast-carrito";
+
+        const variante = [
+            producto.talla_seleccionada,
+            producto.color_seleccionado
+        ]
+            .filter(Boolean)
+            .join(" / ");
+
+        toast.innerHTML = `
+            <div class="catalogo-toast-content">
+                <span class="catalogo-toast-icon">
+                    <i class="bi bi-cart-check-fill"></i>
+                </span>
+
+                <span class="catalogo-toast-text">
+                    <strong>Añadido al carrito</strong>
+
+                    <small>
+                        ${producto.nombre_producto}
+                        ${
+                            variante
+                                ? ` (${variante})`
+                                : ""
+                        }
+                    </small>
+                </span>
+            </div>
+        `;
+
+        document.body.appendChild(
+            toast
+        );
+
+        requestAnimationFrame(() => {
+            toast.classList.add(
+                "visible"
+            );
+        });
+
+        setTimeout(() => {
+            toast.classList.remove(
+                "visible"
+            );
+
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 2600);
+    };
+
+    const agregarAlCarrito = (
+        producto
+    ) => {
+        const existente =
+            carrito.find(
+                (item) =>
+                    item.id_producto ===
+                        producto.id_producto &&
+                    item.talla_seleccionada ===
+                        producto.talla_seleccionada &&
+                    item.color_seleccionado ===
+                        producto.color_seleccionado
+            );
+
+        let nuevoCarrito;
+
+        if (existente) {
+            nuevoCarrito = carrito.map(
+                (item) => {
+                    const esMismo =
+                        item.id_producto ===
+                            producto.id_producto &&
+                        item.talla_seleccionada ===
+                            producto.talla_seleccionada &&
+                        item.color_seleccionado ===
+                            producto.color_seleccionado;
+
+                    if (!esMismo) {
+                        return item;
+                    }
+
+                    return {
+                        ...item,
+                        cantidad:
+                            (
+                                item.cantidad ||
+                                1
+                            ) + 1
+                    };
+                }
+            );
+        } else {
+            nuevoCarrito = [
+                ...carrito,
+                {
+                    ...producto,
+                    cantidad: 1
+                }
+            ];
+        }
+
+        actualizarCarritoGlobal(
+            nuevoCarrito
+        );
+
+        mostrarToastCarrito(
+            producto
+        );
+    };
+
+    const cantidadCarrito =
+        carrito.reduce(
+            (
+                total,
+                producto
+            ) =>
+                total +
+                (
+                    producto.cantidad ||
+                    1
+                ),
+            0
+        );
+
+    const totalCarrito =
+        carrito.reduce(
+            (
+                total,
+                producto
+            ) =>
+                total +
+                parseFloat(
+                    producto.precio_venta ||
+                        0
+                ) *
+                    (
+                        producto.cantidad ||
+                        1
+                    ),
+            0
+        );
+
+    const seleccionarSugerencia = (
+        producto
+    ) => {
+        setBusqueda(
+            producto.nombre_producto
+        );
+
+        setMostrarSugerencias(false);
+
+        abrirModalDetalles(
+            producto
+        );
+    };
+
+    const cargarSiguientePagina =
+        () => {
+            if (
+                cargandoMas ||
+                !hayMas
+            ) {
+                return;
+            }
+
+            cargarProductos(
+                pagina + 1,
+                false
+            );
+        };
 
     return (
-        <Container className="pb-5">
-            <div className="pt-5 mt-4">
-                <Row className="mb-5 align-items-center g-3">
-                    <Col lg={4} md={12}>
-                        <div className="d-flex align-items-center">
-                            <div className="bg-primary bg-opacity-10 p-2 rounded-3 me-3 d-none d-md-block">
-                                <i className="bi bi-shop fs-3 text-primary"></i>
+        <main className="catalogo-pwa">
+            <Container
+                fluid="lg"
+                className="catalogo-pwa-container"
+            >
+                <section className="catalogo-top-glass">
+                    <div className="catalogo-welcome-row">
+                        <div className="catalogo-welcome">
+                            <div className="catalogo-welcome-icon">
+                                <i className="bi bi-shop-window"></i>
                             </div>
+
                             <div>
-                                <h1 className="display-6 fw-800 mb-0" style={{ color: 'var(--color-primario)' }}>
+                                <h1>
                                     Descubre
                                 </h1>
-                                <p className="text-muted mb-0 small">Los mejores productos de nuestra comunidad.</p>
+
+                                <p>
+                                    Encuentra productos de nuestra comunidad
+                                </p>
                             </div>
                         </div>
-                    </Col>
-                    <Col lg={5} md={8}>
-                        <div className="position-relative">
-                            <InputGroup className="unique-input-group shadow-sm border rounded-pill overflow-hidden bg-white">
-                                <InputGroup.Text className="bg-transparent border-0 ps-4 pe-2">
-                                    <i className="bi bi-search text-primary"></i>
-                                </InputGroup.Text>
-                                <Form.Control
-                                    className="bg-transparent border-0 py-3 shadow-none"
-                                    placeholder="¿Qué estás buscando hoy?"
-                                    value={busqueda}
-                                    onChange={(e) => setBusqueda(e.target.value)}
-                                    onFocus={() => busqueda.length > 1 && setMostrarSugerencias(true)}
-                                    onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
-                                />
-                                {busqueda && (
-                                    <Button 
-                                        variant="link" 
-                                        className="text-muted border-0 pe-4"
-                                        onClick={() => setBusqueda('')}
-                                    >
-                                        <i className="bi bi-x-circle-fill"></i>
-                                    </Button>
-                                )}
-                            </InputGroup>
 
-                            {/* Dropdown de Sugerencias */}
-                            {mostrarSugerencias && sugerencias.length > 0 && (
-                                <div 
-                                    className="position-absolute w-100 bg-white shadow-lg rounded-4 mt-2 overflow-hidden border"
-                                    style={{ zIndex: 1050, top: '100%' }}
+                        <button
+                            type="button"
+                            className={`catalogo-cart-circle ${
+                                cantidadCarrito >
+                                0
+                                    ? "has-items"
+                                    : ""
+                            }`}
+                            onClick={() =>
+                                setMostrarCarrito(
+                                    true
+                                )
+                            }
+                            aria-label="Abrir carrito"
+                        >
+                            <i className="bi bi-cart3"></i>
+
+                            {cantidadCarrito >
+                                0 && (
+                                <span className="catalogo-cart-count">
+                                    {
+                                        cantidadCarrito
+                                    }
+                                </span>
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="catalogo-search-wrapper">
+                        <div className="catalogo-search-glass">
+                            <i className="bi bi-search"></i>
+
+                            <input
+                                type="search"
+                                placeholder="¿Qué estás buscando hoy?"
+                                value={
+                                    busqueda
+                                }
+                                onChange={(
+                                    event
+                                ) =>
+                                    setBusqueda(
+                                        event
+                                            .target
+                                            .value
+                                    )
+                                }
+                                onFocus={() => {
+                                    if (
+                                        busqueda
+                                            .trim()
+                                            .length >
+                                        1
+                                    ) {
+                                        setMostrarSugerencias(
+                                            true
+                                        );
+                                    }
+                                }}
+                                onBlur={() => {
+                                    setTimeout(
+                                        () =>
+                                            setMostrarSugerencias(
+                                                false
+                                            ),
+                                        180
+                                    );
+                                }}
+                            />
+
+                            {busqueda && (
+                                <button
+                                    type="button"
+                                    className="catalogo-search-clear"
+                                    onClick={() =>
+                                        setBusqueda(
+                                            ""
+                                        )
+                                    }
+                                    aria-label="Limpiar búsqueda"
                                 >
-                                    {sugerencias.map((item) => (
-                                        <div 
-                                            key={item.id_producto}
-                                            className="d-flex align-items-center p-3 border-bottom suggestion-item"
-                                            style={{ cursor: 'pointer' }}
-                                            onClick={() => {
-                                                setBusqueda(item.nombre_producto);
-                                                setMostrarSugerencias(false);
-                                                // Abrir detalle directamente
-                                                abrirModalDetalles(item);
-                                            }}
-                                        >
-                                            <img 
-                                                src={item.imagen_url?.[0] || 'https://via.placeholder.com/50'} 
-                                                alt={item.nombre_producto}
-                                                className="rounded-3 me-3"
-                                                style={{ width: '40px', height: '40px', objectFit: 'cover' }}
-                                            />
-                                            <div className="flex-grow-1 overflow-hidden">
-                                                <h6 className="mb-0 text-truncate small fw-bold">{item.nombre_producto}</h6>
-                                                <small className="text-success">C$ {parseFloat(item.precio_venta).toFixed(2)}</small>
-                                            </div>
-                                            <i className="bi bi-arrow-up-left text-muted small ms-2"></i>
-                                        </div>
-                                    ))}
-                                </div>
+                                    <i className="bi bi-x-circle-fill"></i>
+                                </button>
                             )}
                         </div>
-                    </Col>
-                    <Col lg={3} md={4}>
-                        <Button
-                            variant={carrito.length > 0 ? "primary" : "outline-secondary"}
-                            className={`w-100 py-3 rounded-pill fw-bold border-2 transition-all d-flex align-items-center justify-content-center ${carrito.length > 0 ? 'shadow-md pulse-button' : ''}`}
-                            onClick={() => setMostrarCarrito(true)}
-                        >
-                            <div className="position-relative me-2">
-                                <i className="bi bi-cart3 fs-5"></i>
-                                {carrito.length > 0 && (
-                                    <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style={{ fontSize: '0.6rem' }}>
-                                        {carrito.length}
-                                    </span>
-                                )}
-                            </div>
-                            {carrito.length > 0 ? 'Ver Mi Carrito' : 'Carrito Vacío'}
-                        </Button>
-                    </Col>
-                </Row>
 
-                {/* Filtro de Categorías en Tarjetas */}
-                <div className="mb-5">
-                    <div className="d-flex align-items-center justify-content-between mb-4">
-                        <h5 className="fw-bold mb-0">
-                            <i className="bi bi-grid-3x3-gap text-primary me-2"></i>
-                            Explorar por Categoría
-                        </h5>
+                        {mostrarSugerencias &&
+                            sugerencias.length >
+                                0 && (
+                                <div className="catalogo-suggestions-glass">
+                                    {sugerencias.map(
+                                        (
+                                            producto
+                                        ) => (
+                                            <button
+                                                type="button"
+                                                key={
+                                                    producto.id_producto
+                                                }
+                                                className="catalogo-suggestion"
+                                                onMouseDown={() =>
+                                                    seleccionarSugerencia(
+                                                        producto
+                                                    )
+                                                }
+                                            >
+                                                <img
+                                                    src={
+                                                        producto
+                                                            .imagen_url?.[0] ||
+                                                        "https://via.placeholder.com/80?text=Sin+Imagen"
+                                                    }
+                                                    alt={
+                                                        producto.nombre_producto
+                                                    }
+                                                />
+
+                                                <span className="catalogo-suggestion-info">
+                                                    <strong>
+                                                        {
+                                                            producto.nombre_producto
+                                                        }
+                                                    </strong>
+
+                                                    <small>
+                                                        C${" "}
+                                                        {parseFloat(
+                                                            producto.precio_venta ||
+                                                                0
+                                                        ).toFixed(
+                                                            2
+                                                        )}
+                                                    </small>
+                                                </span>
+
+                                                <i className="bi bi-chevron-right"></i>
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+                            )}
+                    </div>
+                </section>
+
+                <section className="catalogo-categories-section">
+                    <div className="catalogo-section-heading">
+                        <div>
+                            <span className="catalogo-section-eyebrow">
+                                Categorías
+                            </span>
+
+                            <h2>
+                                Explorar productos
+                            </h2>
+                        </div>
+
                         {categoriaSeleccionada && (
-                            <Button 
-                                variant="link" 
-                                className="text-decoration-none text-muted p-0 small"
-                                onClick={() => setCategoriaSeleccionada(null)}
+                            <button
+                                type="button"
+                                className="catalogo-link-button"
+                                onClick={() =>
+                                    setCategoriaSeleccionada(
+                                        null
+                                    )
+                                }
                             >
-                                <i className="bi bi-x-circle me-1"></i>Limpiar filtro
-                            </Button>
+                                Ver todas
+                            </button>
                         )}
                     </div>
-                    
-                    <div className="d-flex gap-3 overflow-auto pb-3 custom-scrollbar">
-                        <Card 
-                            className={`border-0 shadow-sm category-filter-card flex-shrink-0 ${!categoriaSeleccionada ? 'active' : ''}`}
-                            onClick={() => setCategoriaSeleccionada(null)}
-                            style={{ minWidth: '120px', cursor: 'pointer' }}
+
+                    <div className="catalogo-categories-scroll">
+                        <button
+                            type="button"
+                            className={`catalogo-category-glass ${
+                                !categoriaSeleccionada
+                                    ? "active"
+                                    : ""
+                            }`}
+                            onClick={() =>
+                                setCategoriaSeleccionada(
+                                    null
+                                )
+                            }
                         >
-                            <Card.Body className="text-center p-3">
-                                <div className={`icon-wrapper mb-2 rounded-circle d-flex align-items-center justify-content-center mx-auto ${!categoriaSeleccionada ? 'bg-primary text-white' : 'bg-light text-primary'}`} style={{ width: '45px', height: '45px' }}>
-                                    <i className="bi bi-house-door fs-5"></i>
-                                </div>
-                                <span className="small fw-bold d-block">Todas</span>
-                            </Card.Body>
-                        </Card>
+                            <span className="catalogo-category-icon">
+                                <i className="bi bi-grid-fill"></i>
+                            </span>
 
-                        {categorias.map(cat => (
-                            <Card 
-                                key={cat.id_categoria}
-                                className={`border-0 shadow-sm category-filter-card flex-shrink-0 ${categoriaSeleccionada === cat.id_categoria ? 'active' : ''}`}
-                                onClick={() => setCategoriaSeleccionada(cat.id_categoria)}
-                                style={{ minWidth: '120px', cursor: 'pointer' }}
-                            >
-                                <Card.Body className="text-center p-3">
-                                    <div className={`icon-wrapper mb-2 rounded-circle d-flex align-items-center justify-content-center mx-auto ${categoriaSeleccionada === cat.id_categoria ? 'bg-primary text-white' : 'bg-light text-primary'}`} style={{ width: '45px', height: '45px' }}>
-                                        <i className="bi bi-tag fs-5"></i>
-                                    </div>
-                                    <span className="small fw-bold d-block text-truncate w-100">{cat.nombre_categoria}</span>
-                                </Card.Body>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
+                            <span>
+                                Todas
+                            </span>
+                        </button>
 
-                {/* Promotional Banner */}
-                <div
-                    className="mb-5 rounded-4 p-4 p-md-5 d-flex flex-column flex-md-row justify-content-between align-items-center shadow-lg position-relative overflow-hidden"
-                    style={{ 
-                        background: 'linear-gradient(135deg, #0f4c5c 0%, #1a7a8a 100%)',
-                        border: 'none'
-                    }}
-                >
-                    <div className="position-relative z-1 text-center text-md-start mb-4 mb-md-0">
-                        <Badge bg="warning" className="mb-3 px-3 py-2 text-dark text-uppercase fw-bold shadow-sm" style={{ letterSpacing: '1px' }}>
-                            <i className="bi bi-stars me-1"></i> Ofertas Especiales
-                        </Badge>
-                        <h2 className="text-white fw-900 mb-2 display-5">Temporada de Ahorro</h2>
-                        <p className="text-white-50 mb-0 fs-5">Encuentra descuentos increíbles en tus categorías favoritas.</p>
-                    </div>
-                    <div className="position-relative z-1 w-100 w-md-auto">
-                        <Button
-                            variant={mostrarSoloOfertas ? "light" : "outline-light"}
-                            className="rounded-pill px-5 py-3 fw-bold shadow-sm w-100 w-md-auto transition-all border-2"
-                            onClick={() => setMostrarSoloOfertas(!mostrarSoloOfertas)}
-                            style={{ minWidth: '200px' }}
-                        >
-                            {mostrarSoloOfertas ? (
-                                <><i className="bi bi-grid-fill me-2"></i>Ver Todos</>
-                            ) : (
-                                <><i className="bi bi-percent me-2"></i>Filtrar Ofertas</>
-                            )}
-                        </Button>
-                    </div>
-                    
-                    {/* Decorative Elements */}
-                    <div className="position-absolute d-none d-md-block" style={{ width: '250px', height: '250px', background: 'rgba(255,255,255,0.03)', borderRadius: '50%', top: '-50px', left: '-50px' }}></div>
-                    <div className="position-absolute d-none d-md-block" style={{ width: '400px', height: '400px', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', bottom: '-150px', right: '-100px' }}></div>
-                </div>
-
-                {cargando ? (
-                    <div className="text-center py-5">
-                        <Spinner animation="grow" variant="primary" />
-                        <p className="mt-3 text-muted fw-500">Preparando el catálogo...</p>
-                    </div>
-                ) : productos.length === 0 ? (
-                    <div className="text-center py-5 bg-white rounded-xl shadow-sm border">
-                        <i className="bi bi-box-seam display-1 text-light mb-4 d-block"></i>
-                        <h3 className="text-muted">No se encontraron productos</h3>
-                        <p className="text-muted opacity-75">Vuelve más tarde para ver nuevas novedades.</p>
-                    </div>
-                ) : (
-                    <>
-                        <Row className="g-2 g-md-4">
-                            {productos.map((producto) => (
-                                <Col key={producto.id_producto} xs={6} sm={6} md={4} lg={3} xl={3}>
-                                    {esMovil ? (
-                                        <TarjetaCatalogoMovile 
-                                            producto={producto}
-                                            abrirModalDetalles={abrirModalDetalles}
-                                            agregarAlCarrito={agregarAlCarrito}
-                                            miTiendaId={miTiendaId}
-                                        />
-                                    ) : (
-                                        <TarjetaCatalogo 
-                                            producto={producto}
-                                            abrirModalDetalles={abrirModalDetalles}
-                                            abrirModalContacto={abrirModalContacto}
-                                            agregarAlCarrito={agregarAlCarrito}
-                                            miTiendaId={miTiendaId}
-                                        />
-                                    )}
-                                </Col>
-                            ))}
-                        </Row>
-
-                        {hayMas && (
-                            <div className="text-center mt-5">
-                                <Button 
-                                    variant="outline-primary" 
-                                    className="rounded-pill px-5 py-2 fw-bold"
-                                    onClick={cargarSiguientePagina}
-                                    disabled={cargandoMas}
+                        {categorias.map(
+                            (
+                                categoria
+                            ) => (
+                                <button
+                                    type="button"
+                                    key={
+                                        categoria.id_categoria
+                                    }
+                                    className={`catalogo-category-glass ${
+                                        categoriaSeleccionada ===
+                                        categoria.id_categoria
+                                            ? "active"
+                                            : ""
+                                    }`}
+                                    onClick={() =>
+                                        setCategoriaSeleccionada(
+                                            categoria.id_categoria
+                                        )
+                                    }
                                 >
-                                    {cargandoMas ? (
-                                        <><Spinner animation="border" size="sm" className="me-2" /> Cargando...</>
-                                    ) : (
-                                        'Ver más productos'
-                                    )}
-                                </Button>
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
+                                    <span className="catalogo-category-icon">
+                                        <i className="bi bi-tag-fill"></i>
+                                    </span>
 
-            {/* Modals remain the same but will inherit new styles */}
+                                    <span>
+                                        {
+                                            categoria.nombre_categoria
+                                        }
+                                    </span>
+                                </button>
+                            )
+                        )}
+                    </div>
+                </section>
+
+                <section className="catalogo-offer-banner">
+                    <div className="catalogo-offer-content">
+                        <span className="catalogo-offer-badge">
+                            <i className="bi bi-stars"></i>
+                            Ofertas especiales
+                        </span>
+
+                        <h2>
+                            Temporada de ahorro
+                        </h2>
+
+                        <p>
+                            Encuentra descuentos especiales en tus categorías favoritas.
+                        </p>
+
+                        <button
+                            type="button"
+                            className={`catalogo-offer-button ${
+                                mostrarSoloOfertas
+                                    ? "active"
+                                    : ""
+                            }`}
+                            onClick={() =>
+                                setMostrarSoloOfertas(
+                                    (
+                                        valor
+                                    ) =>
+                                        !valor
+                                )
+                            }
+                        >
+                            <i
+                                className={`bi ${
+                                    mostrarSoloOfertas
+                                        ? "bi-grid-fill"
+                                        : "bi-percent"
+                                }`}
+                            ></i>
+
+                            {mostrarSoloOfertas
+                                ? "Ver todos"
+                                : "Ver ofertas"}
+                        </button>
+                    </div>
+
+                    <div
+                        className="catalogo-offer-orb orb-one"
+                        aria-hidden="true"
+                    ></div>
+
+                    <div
+                        className="catalogo-offer-orb orb-two"
+                        aria-hidden="true"
+                    ></div>
+                </section>
+
+                <section className="catalogo-products-section">
+                    <div className="catalogo-section-heading">
+                        <div>
+                            <span className="catalogo-section-eyebrow">
+                                Catálogo
+                            </span>
+
+                            <h2>
+                                Productos disponibles
+                            </h2>
+                        </div>
+
+                        <span className="catalogo-products-count">
+                            {
+                                productos.length
+                            }{" "}
+                            productos
+                        </span>
+                    </div>
+
+                    {cargando ? (
+                        <div className="catalogo-loading">
+                            <span className="catalogo-loading-glass">
+                                <Spinner
+                                    animation="border"
+                                    size="sm"
+                                />
+
+                                <span>
+                                    Preparando catálogo...
+                                </span>
+                            </span>
+                        </div>
+                    ) : productos.length ===
+                      0 ? (
+                        <div className="catalogo-empty-glass">
+                            <i className="bi bi-box-seam"></i>
+
+                            <h3>
+                                No se encontraron productos
+                            </h3>
+
+                            <p>
+                                Prueba otra búsqueda o selecciona una categoría diferente.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <Row className="catalogo-products-grid">
+                                {productos.map(
+                                    (
+                                        producto
+                                    ) => (
+                                        <Col
+                                            key={
+                                                producto.id_producto
+                                            }
+                                            xs={
+                                                6
+                                            }
+                                            sm={
+                                                6
+                                            }
+                                            md={
+                                                4
+                                            }
+                                            lg={
+                                                3
+                                            }
+                                            xl={
+                                                3
+                                            }
+                                            className="catalogo-product-column"
+                                        >
+                                            {esMovil ? (
+                                                <TarjetaCatalogoMovile
+                                                    producto={
+                                                        producto
+                                                    }
+                                                    abrirModalDetalles={
+                                                        abrirModalDetalles
+                                                    }
+                                                    agregarAlCarrito={
+                                                        agregarAlCarrito
+                                                    }
+                                                    miTiendaId={
+                                                        miTiendaId
+                                                    }
+                                                />
+                                            ) : (
+                                                <TarjetaCatalogo
+                                                    producto={
+                                                        producto
+                                                    }
+                                                    abrirModalDetalles={
+                                                        abrirModalDetalles
+                                                    }
+                                                    abrirModalContacto={
+                                                        abrirModalContacto
+                                                    }
+                                                    agregarAlCarrito={
+                                                        agregarAlCarrito
+                                                    }
+                                                    miTiendaId={
+                                                        miTiendaId
+                                                    }
+                                                />
+                                            )}
+                                        </Col>
+                                    )
+                                )}
+                            </Row>
+
+                            {hayMas && (
+                                <div className="catalogo-load-more-wrapper">
+                                    <button
+                                        type="button"
+                                        className="catalogo-load-more"
+                                        onClick={
+                                            cargarSiguientePagina
+                                        }
+                                        disabled={
+                                            cargandoMas
+                                        }
+                                    >
+                                        {cargandoMas ? (
+                                            <>
+                                                <Spinner
+                                                    animation="border"
+                                                    size="sm"
+                                                />
+
+                                                Cargando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="bi bi-plus-circle"></i>
+                                                Ver más productos
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </section>
+            </Container>
+
             <CarritoModal
-                mostrar={mostrarCarrito}
-                setMostrar={setMostrarCarrito}
+                mostrar={
+                    mostrarCarrito
+                }
+                setMostrar={
+                    setMostrarCarrito
+                }
                 carrito={carrito}
-                setCarrito={setCarrito}
-                total={totalCarrito}
-                onCompraExitosa={handleCompraExitosa}
+                setCarrito={
+                    actualizarCarritoGlobal
+                }
+                total={
+                    totalCarrito
+                }
+                onCompraExitosa={
+                    handleCompraExitosa
+                }
             />
+
             <ModalMensaje
-                mostrar={mostrarModalMensaje}
-                setMostrar={setMostrarModalMensaje}
-                producto={productoSeleccionado}
+                mostrar={
+                    mostrarModalMensaje
+                }
+                setMostrar={
+                    setMostrarModalMensaje
+                }
+                producto={
+                    productoSeleccionado
+                }
             />
+
             <ModalDetalleProducto
-                mostrar={mostrarModalDetalle}
-                setMostrar={setMostrarModalDetalle}
-                producto={productoSeleccionado}
-                agregarAlCarrito={agregarAlCarrito}
+                mostrar={
+                    mostrarModalDetalle
+                }
+                setMostrar={
+                    setMostrarModalDetalle
+                }
+                producto={
+                    productoSeleccionado
+                }
+                agregarAlCarrito={
+                    agregarAlCarrito
+                }
             />
+
             <ModalPostCompra
-                mostrar={mostrarModalPostCompra}
-                setMostrar={setMostrarModalPostCompra}
-                items={itemsCompradosRecientemente}
-                alCalificar={abrirModalDetalles}
+                mostrar={
+                    mostrarModalPostCompra
+                }
+                setMostrar={
+                    setMostrarModalPostCompra
+                }
+                items={
+                    itemsCompradosRecientemente
+                }
+                alCalificar={
+                    abrirModalDetalles
+                }
             />
-        </Container>
+        </main>
     );
 }
 

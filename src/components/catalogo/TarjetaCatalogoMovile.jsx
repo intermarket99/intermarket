@@ -1,91 +1,241 @@
-import React from 'react';
-import { Badge, Button } from 'react-bootstrap';
+import React from "react";
+import { Badge } from "react-bootstrap";
 
-const TarjetaCatalogoMovile = ({ 
-    producto, 
-    abrirModalDetalles, 
-    agregarAlCarrito, 
-    miTiendaId 
-}) => {
-    const esOferta = producto.precio_original > producto.precio_venta;
-    const porcentajeDescuento = esOferta 
-        ? Math.round((1 - producto.precio_venta / producto.precio_original) * 100) 
-        : 0;
+const obtenerPrimeraImagen = (
+    imagenUrl
+) => {
+    if (
+        Array.isArray(
+            imagenUrl
+        )
+    ) {
+        return (
+            imagenUrl[0] ||
+            null
+        );
+    }
 
     return (
-        <div className="modern-mobile-card mb-3" onClick={() => abrirModalDetalles(producto)}>
-            {/* Imagen con Badges */}
-            <div className="modern-mobile-img-wrapper">
-                <img 
-                    src={producto.imagen_url?.[0] || 'https://via.placeholder.com/400x533?text=Sin+Imagen'} 
-                    alt={producto.nombre_producto} 
-                    className="modern-mobile-img"
+        imagenUrl ||
+        null
+    );
+};
+
+const TarjetaCatalogoMovile = ({
+    producto,
+    abrirModalDetalles,
+    agregarAlCarrito,
+    miTiendaId
+}) => {
+    const precioVenta =
+        Number(
+            producto.precio_venta ||
+                0
+        );
+
+    const precioOriginal =
+        Number(
+            producto.precio_original ||
+                0
+        );
+
+    const stock =
+        Number(
+            producto.stock ||
+                0
+        );
+
+    const esOferta =
+        precioOriginal >
+        precioVenta;
+
+    const porcentajeDescuento =
+        esOferta &&
+        precioOriginal > 0
+            ? Math.round(
+                  (
+                      1 -
+                      precioVenta /
+                          precioOriginal
+                  ) *
+                      100
+              )
+            : 0;
+
+    const esMiProducto =
+        producto.id_tienda ===
+        miTiendaId;
+
+    const estaAgotado =
+        stock <= 0;
+
+    const tieneTallas =
+        Array.isArray(
+            producto.tallas
+        ) &&
+        producto.tallas.length > 0;
+
+    const tieneColores =
+        Array.isArray(
+            producto.colores
+        ) &&
+        producto.colores.length > 0;
+
+    const tieneVariantes =
+        tieneTallas ||
+        tieneColores;
+
+    const imagen =
+        obtenerPrimeraImagen(
+            producto.imagen_url
+        );
+
+    const manejarAgregar = (
+        event
+    ) => {
+        event.stopPropagation();
+
+        if (
+            esMiProducto ||
+            estaAgotado
+        ) {
+            return;
+        }
+
+        if (tieneVariantes) {
+            abrirModalDetalles(
+                producto
+            );
+
+            return;
+        }
+
+        agregarAlCarrito(
+            producto
+        );
+    };
+
+    return (
+        <article
+            className="catalog-mobile-card"
+            onClick={() =>
+                abrirModalDetalles(
+                    producto
+                )
+            }
+        >
+            <div className="catalog-mobile-media">
+                <img
+                    src={
+                        imagen ||
+                        "https://via.placeholder.com/500x650?text=Sin+Imagen"
+                    }
+                    alt={
+                        producto.nombre_producto
+                    }
+                    className="catalog-mobile-image"
                     loading="lazy"
-                    onError={(e) => e.target.src = 'https://via.placeholder.com/400x533?text=Error'}
+                    onError={(
+                        event
+                    ) => {
+                        event.currentTarget.src =
+                            "https://via.placeholder.com/500x650?text=Sin+Imagen";
+                    }}
                 />
-                
-                <div className="modern-mobile-badges">
+
+                <span className="catalog-mobile-image-overlay"></span>
+
+                <div className="catalog-mobile-badges">
                     {esOferta && (
-                        <Badge bg="danger" className="modern-badge-mini">
+                        <Badge className="catalog-mobile-badge discount">
                             -{porcentajeDescuento}%
                         </Badge>
                     )}
-                    {producto.stock === 0 && (
-                        <Badge bg="dark" className="modern-badge-mini">
+
+                    {estaAgotado && (
+                        <Badge className="catalog-mobile-badge soldout">
                             Agotado
                         </Badge>
                     )}
                 </div>
-                
-                {/* Botón rápido de carrito en móvil */}
-                {producto.stock > 0 && producto.id_tienda !== miTiendaId && (
-                    <button 
-                        className="modern-mobile-quick-add"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            if (Array.isArray(producto.tallas) && producto.tallas.length > 0 || Array.isArray(producto.colores) && producto.colores.length > 0) {
-                                abrirModalDetalles(producto);
-                            } else {
-                                agregarAlCarrito(producto);
+
+                {!estaAgotado &&
+                    !esMiProducto && (
+                        <button
+                            type="button"
+                            className="catalog-mobile-add"
+                            onClick={
+                                manejarAgregar
                             }
-                        }}
-                    >
-                        <i className={`bi bi-${(Array.isArray(producto.tallas) && producto.tallas.length > 0 || Array.isArray(producto.colores) && producto.colores.length > 0) ? 'list-ul' : 'plus-lg'}`}></i>
-                    </button>
-                )}
+                            aria-label={
+                                tieneVariantes
+                                    ? "Seleccionar opciones"
+                                    : "Añadir al carrito"
+                            }
+                        >
+                            <i
+                                className={`bi ${
+                                    tieneVariantes
+                                        ? "bi-sliders"
+                                        : "bi-plus-lg"
+                                }`}
+                            ></i>
+                        </button>
+                    )}
             </div>
 
-            {/* Contenido */}
-            <div className="modern-mobile-content">
-                <div className="modern-mobile-meta">
-                    <span className="modern-mobile-category">
-                        {producto.categorias?.nombre_categoria || 'General'}
+            <div className="catalog-mobile-content">
+                <div className="catalog-mobile-meta">
+                    <span className="catalog-mobile-category">
+                        {producto
+                            .categorias
+                            ?.nombre_categoria ||
+                            "General"}
                     </span>
-                </div>
 
-                <h4 className="modern-mobile-title text-truncate-2">
-                    {producto.nombre_producto}
-                </h4>
-
-                <div className="modern-mobile-price-row">
-                    <span className="modern-mobile-price">
-                        <small>C$</small>{parseFloat(producto.precio_venta || 0).toFixed(2)}
-                    </span>
-                    {esOferta && (
-                        <span className="modern-mobile-old-price ms-2">
-                            C${parseFloat(producto.precio_original).toFixed(2)}
+                    {esMiProducto && (
+                        <span className="catalog-mobile-own">
+                            Mi producto
                         </span>
                     )}
                 </div>
 
-                {/* Info de stock bajo */}
-                {producto.stock > 0 && producto.stock <= 5 && (
-                    <div className="modern-mobile-stock text-warning">
-                        <i className="bi bi-fire me-1"></i>Últimos {producto.stock}
-                    </div>
-                )}
+                <h3 className="catalog-mobile-title">
+                    {
+                        producto.nombre_producto
+                    }
+                </h3>
+
+                <div className="catalog-mobile-price-row">
+                    <span className="catalog-mobile-price">
+                        <small>
+                            C$
+                        </small>
+
+                        {precioVenta.toFixed(
+                            2
+                        )}
+                    </span>
+
+                    {esOferta && (
+                        <span className="catalog-mobile-old-price">
+                            C$
+                            {precioOriginal.toFixed(
+                                2
+                            )}
+                        </span>
+                    )}
+                </div>
+
+                {!estaAgotado &&
+                    stock <= 5 && (
+                        <div className="catalog-mobile-stock">
+                            <i className="bi bi-fire"></i>
+                            Últimos {stock}
+                        </div>
+                    )}
             </div>
-        </div>
+        </article>
     );
 };
 

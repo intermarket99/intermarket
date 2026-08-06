@@ -1,399 +1,1361 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Container, Nav, Navbar, Offcanvas, Dropdown, Badge } from "react-bootstrap";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Badge,
+  Container,
+  Dropdown,
+  Nav,
+  Navbar,
+  Offcanvas
+} from "react-bootstrap";
+
+import {
+  useLocation,
+  useNavigate
+} from "react-router-dom";
+
 import logo from "../../assets/icono_intermAeview.png";
 import { supabase } from "../../database/supabaseconfig";
 import { useAuth } from "../../context/AuthContext";
+
 import "../../App.css";
 
 const Encabezado = () => {
-  const [mostrarMenu, setMostrarMenu] = useState(false);
-  const [carritoCount, setCarritoCount] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
-  const [fotoUrl, setFotoUrl] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, role, signOut } = useAuth();
 
-  const [notificaciones, setNotificaciones] = useState([]);
-  const [noLeidas, setNoLeidas] = useState(0);
+  const {
+    user,
+    role,
+    signOut
+  } = useAuth();
 
+  const [mostrarMenu, setMostrarMenu] =
+    useState(false);
+
+  const [scrolled, setScrolled] =
+    useState(false);
+
+  const [fotoUrl, setFotoUrl] =
+    useState("");
+
+  const [carritoCount, setCarritoCount] =
+    useState(0);
+
+  const [
+    notificaciones,
+    setNotificaciones
+  ] = useState([]);
+
+  const [noLeidas, setNoLeidas] =
+    useState(0);
+
+  const esLogin =
+    location.pathname === "/login";
+
+  const nombreUsuario = useMemo(() => {
+    if (!user?.email) {
+      return "Usuario";
+    }
+
+    return user.email.split("@")[0];
+  }, [user]);
+
+  const inicialUsuario = useMemo(() => {
+    return nombreUsuario
+      .charAt(0)
+      .toUpperCase();
+  }, [nombreUsuario]);
+
+  const rutaInicio = useMemo(() => {
+    if (role === "admin") {
+      return "/admin-inicio";
+    }
+
+    if (role === "vendedor") {
+      return "/vendedor";
+    }
+
+    return "/catalogo";
+  }, [role]);
+
+  const navegar = (ruta) => {
+    navigate(ruta);
+    setMostrarMenu(false);
+  };
+
+  const esRutaActiva = (ruta) => {
+    if (ruta === "/") {
+      return location.pathname === "/";
+    }
+
+    return location.pathname.startsWith(ruta);
+  };
+
+  // Detectar scroll
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
+    const manejarScroll = () => {
+      setScrolled(
+        window.scrollY > 18
+      );
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    manejarScroll();
+
+    window.addEventListener(
+      "scroll",
+      manejarScroll
+    );
+
+    return () => {
+      window.removeEventListener(
+        "scroll",
+        manejarScroll
+      );
+    };
   }, []);
 
-  // Cargar datos del usuario (perfil y notificaciones) de forma optimizada
+  // Leer cantidad del carrito
+  const actualizarCarritoCount = () => {
+    try {
+      const carritoGuardado =
+        JSON.parse(
+          localStorage.getItem(
+            "carrito"
+          ) || "[]"
+        );
+
+      const cantidad =
+        carritoGuardado.reduce(
+          (total, producto) =>
+            total +
+            Number(
+              producto.cantidad || 1
+            ),
+          0
+        );
+
+      setCarritoCount(cantidad);
+    } catch (error) {
+      console.error(
+        "Error leyendo carrito:",
+        error
+      );
+
+      setCarritoCount(0);
+    }
+  };
+
   useEffect(() => {
-    if (!user) {
+    actualizarCarritoCount();
+
+    window.addEventListener(
+      "storage",
+      actualizarCarritoCount
+    );
+
+    window.addEventListener(
+      "carritoActualizado",
+      actualizarCarritoCount
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        actualizarCarritoCount
+      );
+
+      window.removeEventListener(
+        "carritoActualizado",
+        actualizarCarritoCount
+      );
+    };
+  }, []);
+
+  // Perfil y notificaciones
+  useEffect(() => {
+    if (!user?.id) {
       setFotoUrl("");
       setNotificaciones([]);
       setNoLeidas(0);
       return;
     }
 
-    const cargarDatosUsuario = async () => {
-      try {
-        // 1. Obtener perfil_id y foto_perfil en una sola consulta
-        const { data: perfilData, error: perfilError } = await supabase
-          .from('perfiles')
-          .select('perfil_id, foto_perfil')
-          .eq('id_usuario', user.id)
-          .maybeSingle();
+    let canalNotificaciones;
 
-        if (perfilError) throw perfilError;
-        
-        if (perfilData) {
-          setFotoUrl(perfilData.foto_perfil || "");
-          
-          // 2. Cargar notificaciones usando el perfil_id
-          const { data: notisData, error: notisError } = await supabase
-            .from('notificaciones')
-            .select('*')
-            .eq('usuario_id', perfilData.perfil_id)
-            .order('creado_en', { ascending: false })
-            .limit(10);
+    const cargarDatosUsuario =
+      async () => {
+        try {
+          const {
+            data: perfil,
+            error: perfilError
+          } = await supabase
+            .from("perfiles")
+            .select(
+              "perfil_id, foto_perfil"
+            )
+            .eq(
+              "id_usuario",
+              user.id
+            )
+            .maybeSingle();
 
-          if (notisError) throw notisError;
-          
-          if (notisData) {
-            setNotificaciones(notisData);
-            setNoLeidas(notisData.filter(n => !n.leido).length);
+          if (perfilError) {
+            throw perfilError;
           }
+
+          setFotoUrl(
+            perfil?.foto_perfil || ""
+          );
+
+          if (!perfil?.perfil_id) {
+            setNotificaciones([]);
+            setNoLeidas(0);
+            return;
+          }
+
+          const {
+            data: notificacionesData,
+            error: notificacionesError
+          } = await supabase
+            .from("notificaciones")
+            .select(`
+              id_notificacion,
+              perfil_id,
+              titulo,
+              mensaje,
+              leido,
+              creado_en
+            `)
+            .eq(
+              "perfil_id",
+              perfil.perfil_id
+            )
+            .order(
+              "creado_en",
+              {
+                ascending: false
+              }
+            )
+            .limit(15);
+
+          if (notificacionesError) {
+            throw notificacionesError;
+          }
+
+          const lista =
+            notificacionesData || [];
+
+          setNotificaciones(lista);
+
+          setNoLeidas(
+            lista.filter(
+              (notificacion) =>
+                !notificacion.leido
+            ).length
+          );
+        } catch (error) {
+          console.error(
+            "Error cargando datos del encabezado:",
+            error
+          );
         }
-      } catch (err) {
-        console.error("Error cargando datos de usuario:", err);
-      }
-    };
+      };
 
     cargarDatosUsuario();
 
-    // Suscripción a notificaciones en tiempo real
-    const channel = supabase.channel(`notis_${user.id}`)
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'notificaciones' 
-      }, () => {
-        cargarDatosUsuario();
-      })
+    canalNotificaciones = supabase
+      .channel(
+        `notificaciones-${user.id}`
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notificaciones"
+        },
+        () => {
+          cargarDatosUsuario();
+        }
+      )
       .subscribe();
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      if (canalNotificaciones) {
+        supabase.removeChannel(
+          canalNotificaciones
+        );
+      }
     };
-  }, [user]);
+  }, [user?.id]);
 
-  const marcarComoLeidas = async () => {
-    if (noLeidas === 0) return;
-    setNoLeidas(0);
-    const noLeidasIds = notificaciones.filter(n => !n.leido).map(n => n.id_notificacion);
-    if (noLeidasIds.length === 0) return;
-    setNotificaciones(prev => prev.map(n => ({ ...n, leido: true })));
-    await supabase.from('notificaciones').update({ leido: true }).in('id_notificacion', noLeidasIds);
-  };
+  const marcarComoLeidas =
+    async () => {
+      const idsNoLeidas =
+        notificaciones
+          .filter(
+            (notificacion) =>
+              !notificacion.leido
+          )
+          .map(
+            (notificacion) =>
+              notificacion.id_notificacion
+          );
 
-  const borrarNotificacion = async (id, e) => {
-    e.stopPropagation(); // Evitar que el dropdown se cierre o marque como leído
-    try {
-      const { error } = await supabase.from('notificaciones').delete().eq('id_notificacion', id);
-      if (error) throw error;
-      setNotificaciones(prev => prev.filter(n => n.id_notificacion !== id));
-      setNoLeidas(prev => notificaciones.find(n => n.id_notificacion === id)?.leido ? prev : Math.max(0, prev - 1));
-    } catch (err) {
-      console.error("Error al borrar notificación:", err);
-    }
-  };
+      if (
+        idsNoLeidas.length === 0
+      ) {
+        return;
+      }
 
-  const vaciarNotificaciones = async () => {
-    if (notificaciones.length === 0) return;
-    if (!window.confirm("¿Estás seguro de que deseas borrar todas las notificaciones?")) return;
-    
-    try {
-      const ids = notificaciones.map(n => n.id_notificacion);
-      const { error } = await supabase.from('notificaciones').delete().in('id_notificacion', ids);
-      if (error) throw error;
+      setNotificaciones(
+        (anteriores) =>
+          anteriores.map(
+            (notificacion) => ({
+              ...notificacion,
+              leido: true
+            })
+          )
+      );
+
+      setNoLeidas(0);
+
+      const { error } =
+        await supabase
+          .from("notificaciones")
+          .update({
+            leido: true
+          })
+          .in(
+            "id_notificacion",
+            idsNoLeidas
+          );
+
+      if (error) {
+        console.error(
+          "No se pudieron marcar como leídas:",
+          error
+        );
+      }
+    };
+
+  const borrarNotificacion =
+    async (
+      idNotificacion,
+      evento
+    ) => {
+      evento.preventDefault();
+      evento.stopPropagation();
+
+      const notificacion =
+        notificaciones.find(
+          (item) =>
+            item.id_notificacion ===
+            idNotificacion
+        );
+
+      const { error } =
+        await supabase
+          .from("notificaciones")
+          .delete()
+          .eq(
+            "id_notificacion",
+            idNotificacion
+          );
+
+      if (error) {
+        console.error(
+          "No se pudo borrar la notificación:",
+          error
+        );
+
+        return;
+      }
+
+      setNotificaciones(
+        (anteriores) =>
+          anteriores.filter(
+            (item) =>
+              item.id_notificacion !==
+              idNotificacion
+          )
+      );
+
+      if (
+        notificacion &&
+        !notificacion.leido
+      ) {
+        setNoLeidas(
+          (cantidad) =>
+            Math.max(
+              0,
+              cantidad - 1
+            )
+        );
+      }
+    };
+
+  const vaciarNotificaciones =
+    async () => {
+      if (
+        notificaciones.length === 0
+      ) {
+        return;
+      }
+
+      const confirmar =
+        window.confirm(
+          "¿Deseas eliminar todas las notificaciones?"
+        );
+
+      if (!confirmar) {
+        return;
+      }
+
+      const ids =
+        notificaciones.map(
+          (notificacion) =>
+            notificacion.id_notificacion
+        );
+
+      const { error } =
+        await supabase
+          .from("notificaciones")
+          .delete()
+          .in(
+            "id_notificacion",
+            ids
+          );
+
+      if (error) {
+        console.error(
+          "No se pudieron eliminar las notificaciones:",
+          error
+        );
+
+        return;
+      }
+
       setNotificaciones([]);
       setNoLeidas(0);
-    } catch (err) {
-      console.error("Error al vaciar notificaciones:", err);
-    }
-  };
-
-  const manejarToggle = () => setMostrarMenu(!mostrarMenu);
-
-  const manejarNavegacion = (ruta) => {
-    navigate(ruta);
-    setMostrarMenu(false);
-  };
-
-  const actualizarCarritoCount = () => {
-    const carritoGuardado = JSON.parse(localStorage.getItem("carrito") || "[]");
-    setCarritoCount(carritoGuardado.reduce((total, item) => total + (item.cantidad || 0), 0));
-  };
-
-  useEffect(() => {
-    actualizarCarritoCount();
-    window.addEventListener("storage", actualizarCarritoCount);
-    window.addEventListener("carritoActualizado", actualizarCarritoCount);
-    return () => {
-      window.removeEventListener("storage", actualizarCarritoCount);
-      window.removeEventListener("carritoActualizado", actualizarCarritoCount);
     };
-  }, []);
 
-  const cerrarSesion = async () => {
-    await signOut();
-    setMostrarMenu(false);
-    navigate("/login", { replace: true });
+  const abrirCarrito = () => {
+    if (
+      location.pathname ===
+      "/catalogo"
+    ) {
+      window.dispatchEvent(
+        new Event("abrirCarrito")
+      );
+
+      return;
+    }
+
+    navigate("/catalogo");
+
+    setTimeout(() => {
+      window.dispatchEvent(
+        new Event("abrirCarrito")
+      );
+    }, 250);
   };
 
-  const esLogin = location.pathname === "/login";
-  const esCatalogo = location.pathname === "/catalogo" && !user;
+  const cerrarSesion =
+    async () => {
+      try {
+        await signOut();
 
-  const MobileNavLink = ({ ruta, icono, texto, color = "" }) => (
-    <Nav.Link 
-        onClick={() => manejarNavegacion(ruta)} 
-        className={`mobile-nav-link ${location.pathname === ruta ? "active" : ""} ${color}`}
+        setMostrarMenu(false);
+
+        navigate(
+          "/login",
+          {
+            replace: true
+          }
+        );
+      } catch (error) {
+        console.error(
+          "Error cerrando sesión:",
+          error
+        );
+      }
+    };
+
+  const AvatarUsuario = ({
+    movil = false
+  }) => {
+    if (fotoUrl) {
+      return (
+        <img
+          src={fotoUrl}
+          alt="Foto del usuario"
+          className={
+            movil
+              ? "liquid-mobile-user-photo"
+              : "liquid-user-photo"
+          }
+        />
+      );
+    }
+
+    return (
+      <span
+        className={
+          movil
+            ? "liquid-mobile-user-avatar"
+            : "liquid-user-avatar"
+        }
+      >
+        {inicialUsuario}
+      </span>
+    );
+  };
+
+  const NotificacionesDropdown =
+    () => (
+      <Dropdown
+        align="end"
+        className="liquid-notification-dropdown"
+        onToggle={(abierto) => {
+          if (abierto) {
+            marcarComoLeidas();
+          }
+        }}
+      >
+        <Dropdown.Toggle
+          variant="link"
+          className="liquid-navbar-icon-btn position-relative"
+          aria-label="Notificaciones"
+        >
+          <i className="bi bi-bell"></i>
+
+          {noLeidas > 0 && (
+            <span className="liquid-notification-count">
+              {noLeidas > 99
+                ? "99+"
+                : noLeidas}
+            </span>
+          )}
+        </Dropdown.Toggle>
+
+        <Dropdown.Menu className="liquid-dropdown-menu liquid-notifications-menu">
+          <div className="liquid-dropdown-header">
+            <div>
+              <strong>
+                Notificaciones
+              </strong>
+
+              <small>
+                {notificaciones.length ===
+                0
+                  ? "No tienes novedades"
+                  : `${notificaciones.length} notificaciones`}
+              </small>
+            </div>
+
+            {notificaciones.length >
+              0 && (
+              <button
+                type="button"
+                className="liquid-clear-notifications"
+                onClick={
+                  vaciarNotificaciones
+                }
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+
+          <div className="liquid-notifications-list">
+            {notificaciones.length ===
+            0 ? (
+              <div className="liquid-empty-notifications">
+                <span>
+                  <i className="bi bi-bell-slash"></i>
+                </span>
+
+                <p>
+                  No hay notificaciones
+                </p>
+              </div>
+            ) : (
+              notificaciones.map(
+                (notificacion) => (
+                  <Dropdown.Item
+                    key={
+                      notificacion.id_notificacion
+                    }
+                    className={`liquid-notification-item ${
+                      !notificacion.leido
+                        ? "unread"
+                        : ""
+                    }`}
+                  >
+                    <span className="liquid-notification-icon">
+                      <i className="bi bi-bell-fill"></i>
+                    </span>
+
+                    <span className="liquid-notification-content">
+                      <strong>
+                        {
+                          notificacion.titulo
+                        }
+                      </strong>
+
+                      <small>
+                        {
+                          notificacion.mensaje
+                        }
+                      </small>
+                    </span>
+
+                    <button
+                      type="button"
+                      className="liquid-delete-notification"
+                      onClick={(
+                        evento
+                      ) =>
+                        borrarNotificacion(
+                          notificacion.id_notificacion,
+                          evento
+                        )
+                      }
+                      aria-label="Eliminar notificación"
+                    >
+                      <i className="bi bi-x-lg"></i>
+                    </button>
+                  </Dropdown.Item>
+                )
+              )
+            )}
+          </div>
+        </Dropdown.Menu>
+      </Dropdown>
+    );
+
+  const PerfilDropdown = () => (
+    <Dropdown
+      align="end"
+      className="liquid-profile-dropdown"
     >
-        <i className={`bi bi-${icono}`}></i>
-        <span>{texto}</span>
-    </Nav.Link>
+      <Dropdown.Toggle
+        variant="link"
+        className="liquid-profile-toggle"
+      >
+        <AvatarUsuario />
+
+        <span className="liquid-profile-information">
+          <strong>
+            {nombreUsuario}
+          </strong>
+
+          <small>
+            {role || "Usuario"}
+          </small>
+        </span>
+
+        <i className="bi bi-chevron-down"></i>
+      </Dropdown.Toggle>
+
+      <Dropdown.Menu className="liquid-dropdown-menu liquid-profile-menu">
+        <div className="liquid-profile-menu-header">
+          <AvatarUsuario movil />
+
+          <div>
+            <strong>
+              {nombreUsuario}
+            </strong>
+
+            <small>
+              {user?.email}
+            </small>
+          </div>
+        </div>
+
+        {role === "comprador" && (
+          <Dropdown.Item
+            onClick={() =>
+              navegar("/perfil")
+            }
+          >
+            <i className="bi bi-person"></i>
+            Mi perfil
+          </Dropdown.Item>
+        )}
+
+        <Dropdown.Item
+          onClick={() =>
+            navegar(
+              "/seleccion-rol"
+            )
+          }
+        >
+          <i className="bi bi-arrow-left-right"></i>
+          Cambiar de rol
+        </Dropdown.Item>
+
+        <Dropdown.Divider />
+
+        <Dropdown.Item
+          onClick={
+            cerrarSesion
+          }
+          className="liquid-logout-item"
+        >
+          <i className="bi bi-box-arrow-right"></i>
+          Cerrar sesión
+        </Dropdown.Item>
+      </Dropdown.Menu>
+    </Dropdown>
+  );
+
+  const MobileBottomItem = ({
+    ruta,
+    icono,
+    texto
+  }) => (
+    <button
+      type="button"
+      className={`liquid-mobile-bottom-item ${
+        esRutaActiva(ruta)
+          ? "active"
+          : ""
+      }`}
+      onClick={() =>
+        navegar(ruta)
+      }
+    >
+      <span className="liquid-mobile-bottom-icon">
+        <i
+          className={`bi bi-${icono}`}
+        ></i>
+      </span>
+
+      <small>{texto}</small>
+    </button>
   );
 
   return (
-    <Navbar className={`color-navbar ${scrolled ? 'scrolled shadow-sm' : ''}`} expand="md" fixed="top">
-      <Container>
-        <Navbar.Brand
-          onClick={() => {
-            if (role === 'comprador') manejarNavegacion("/catalogo");
-            else if (esCatalogo) manejarNavegacion("/catalogo");
-            else manejarNavegacion("/");
-          }}
-          className="d-flex align-items-center"
-          style={{ cursor: "pointer" }}
+    <>
+      <Navbar
+        fixed="top"
+        expand="md"
+        className={`liquid-navbar ${
+          scrolled
+            ? "scrolled"
+            : ""
+        }`}
+      >
+        <Container
+          fluid="lg"
+          className="liquid-navbar-container"
         >
-          <img alt="InterMarket" src={logo} width="40" height="40" className="me-2" />
-          <h4 className="mb-0 fw-800" style={{ color: 'var(--color-primario)' }}>InterMarket</h4>
-        </Navbar.Brand>
+          <Navbar.Brand
+            className="liquid-navbar-brand-wrapper"
+            onClick={() =>
+              navegar(rutaInicio)
+            }
+          >
+            <img
+              src={logo}
+              alt="InterMarket"
+              className="liquid-navbar-logo"
+            />
 
-        <div className="d-flex align-items-center order-md-2">
-          {user && !esLogin && (
-            <Dropdown align="end" className="me-2" onToggle={(isOpen) => { if (isOpen) marcarComoLeidas(); }}>
-              <Dropdown.Toggle variant="link" className="p-2 text-dark position-relative text-decoration-none border-0 shadow-none">
-                <i className="bi bi-bell fs-5"></i>
-                {noLeidas > 0 && (
-                  <Badge bg="danger" className="position-absolute top-0 start-50 translate-middle rounded-pill" style={{ fontSize: '0.6rem', padding: '0.3em 0.5em' }}>
-                    {noLeidas}
-                  </Badge>
-                )}
-              </Dropdown.Toggle>
-              <Dropdown.Menu className="shadow-lg border-0 rounded-lg mt-2 notification-dropdown" style={{ maxHeight: '480px', overflowY: 'auto' }}>
-                <div className="p-2 border-bottom d-flex justify-content-between align-items-center bg-light sticky-top">
-                  <span className="mb-0 fw-bold small ms-2">Notificaciones</span>
-                  {notificaciones.length > 0 && (
-                    <button 
-                      className="btn btn-link btn-sm text-danger text-decoration-none small"
-                      onClick={vaciarNotificaciones}
-                      style={{ fontSize: '0.75rem' }}
-                    >
-                      Limpiar todo
-                    </button>
+            <span className="liquid-navbar-brand">
+              InterMarket
+            </span>
+          </Navbar.Brand>
+
+          {/* ACCIONES MÓVILES */}
+          <div className="liquid-navbar-mobile-actions d-md-none">
+            {user && !esLogin && (
+              <NotificacionesDropdown />
+            )}
+
+            {role === "comprador" &&
+              !esLogin && (
+                <button
+                  type="button"
+                  className="liquid-navbar-icon-btn liquid-mobile-cart-button"
+                  onClick={
+                    abrirCarrito
+                  }
+                  aria-label="Abrir carrito"
+                >
+                  <i className="bi bi-cart3"></i>
+
+                  {carritoCount >
+                    0 && (
+                    <span className="liquid-cart-count">
+                      {carritoCount >
+                      99
+                        ? "99+"
+                        : carritoCount}
+                    </span>
                   )}
-                </div>
-                {notificaciones.length === 0 ? (
-                  <div className="p-4 text-center text-muted">No hay notificaciones</div>
-                ) : (
-                  notificaciones.map(noti => (
-                    <Dropdown.Item key={noti.id_notificacion} className={`p-3 border-bottom text-wrap position-relative notification-item ${!noti.leido ? 'bg-light' : ''}`}>
-                      <div className="d-flex justify-content-between align-items-start mb-1">
-                        <span className={`fw-bold small pe-4 ${!noti.leido ? 'text-primary' : ''}`}>{noti.titulo}</span>
-                        <button 
-                          className="btn-close-small position-absolute top-0 end-0 m-2"
-                          onClick={(e) => borrarNotificacion(noti.id_notificacion, e)}
-                        >
-                          <i className="bi bi-x text-muted"></i>
-                        </button>
-                      </div>
-                      <p className="mb-0 small text-secondary" style={{ fontSize: '0.8rem' }}>{noti.mensaje}</p>
-                    </Dropdown.Item>
-                  ))
-                )}
-              </Dropdown.Menu>
-            </Dropdown>
-          )}
+                </button>
+              )}
 
-          {!esLogin && role === 'comprador' && (
             <button
               type="button"
-              className="btn btn-primary btn-sm rounded-pill px-3 me-2 d-flex align-items-center"
-              onClick={() => {
-                if (location.pathname === "/catalogo") window.dispatchEvent(new Event("abrirCarrito"));
-                else { navigate("/catalogo"); setTimeout(() => window.dispatchEvent(new Event("abrirCarrito")), 300); }
-              }}
+              className="liquid-navbar-menu-button"
+              onClick={() =>
+                setMostrarMenu(true)
+              }
+              aria-controls="liquid-mobile-menu"
+              aria-label="Abrir menú"
             >
-              <i className="bi bi-cart2 me-2"></i>
-              <span className="d-none d-sm-inline">Carrito</span>
-              {carritoCount > 0 && <Badge bg="white" text="dark" className="ms-2 rounded-pill">{carritoCount}</Badge>}
-          </button>
-        )}
-        
-        <Navbar.Toggle aria-controls="offcanvasNavbar-expand-md" onClick={manejarToggle} className="border-0 shadow-none custom-toggler d-md-none">
-             <i className={`bi ${mostrarMenu ? 'bi-x-lg' : 'bi-list'}`}></i>
-          </Navbar.Toggle>
-        </div>
+              <i className="bi bi-list"></i>
+            </button>
+          </div>
 
-        <Navbar.Collapse className="d-none d-md-flex">
-          <Nav className="ms-auto align-items-center">
-             {!esLogin && !esCatalogo ? (
+          {/* NAVEGACIÓN DE ESCRITORIO */}
+          <Navbar.Collapse className="liquid-desktop-navbar d-none d-md-flex">
+            <Nav className="liquid-desktop-nav">
+              {role === "admin" && (
                 <>
-                  {role === 'admin' && (
-                    <>
-                      <Nav.Link onClick={() => manejarNavegacion("/admin-inicio")} className={location.pathname === "/admin-inicio" ? "active fw-bold" : ""}>Administración</Nav.Link> 
-                      <Nav.Link onClick={() => manejarNavegacion("/dasboard-admin")} className={location.pathname === "/dasboard-admin" ? "active fw-bold" : ""}>Dashboard</Nav.Link> 
-                      </>
-                  )}
-                  {role === 'vendedor' && (
-                    <>
-                      <Nav.Link onClick={() => manejarNavegacion("/")} className={location.pathname === "/" ? "active fw-bold" : ""}>Inicio</Nav.Link>
-                      <Nav.Link onClick={() => manejarNavegacion("/productos")} className={location.pathname === "/productos" ? "active fw-bold" : ""}>Productos</Nav.Link>
-                      <Nav.Link onClick={() => manejarNavegacion("/tiendas")} className={location.pathname === "/tiendas" ? "active fw-bold" : ""}>Tienda</Nav.Link>
-                      <Nav.Link onClick={() => manejarNavegacion("/envios")} className={location.pathname === "/envios" ? "active fw-bold" : ""}>Envíos</Nav.Link>
-                    </>
-                  )}
-                  {role === 'comprador' && (
-                    <>
-                      <Nav.Link onClick={() => manejarNavegacion("/catalogo")} 
-                      className={location.pathname === "/catalogo" ? "active fw-bold" : ""}>Catálogo</Nav.Link>
-                    
-                    </>
-                  )}
-                  <Nav.Link onClick={() => manejarNavegacion("/mensajes")} className={location.pathname === "/mensajes" ? "active fw-bold" : ""}>Mensajes</Nav.Link>
-                  
-                  {user && (
-                    <Dropdown align="end" className="ms-3">
-                      <Dropdown.Toggle variant="link" className="p-0 border-0 shadow-none d-flex align-items-center text-decoration-none">
-                        {fotoUrl ? (
-                          <img
-                            src={fotoUrl}
-                            alt="Foto de perfil"
-                            className="rounded-circle me-2"
-                            style={{ width: 36, height: 36, objectFit: 'cover', border: '2px solid #f8f9fa' }}
-                          />
-                        ) : (
-                          <div className="user-avatar-circle me-2">
-                            {(user.email || 'U').charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <div className="d-none d-lg-block text-start">
-                          <div className="fw-bold text-dark small leading-tight" style={{fontSize: '0.85rem'}}>{user.email?.split('@')[0]}</div>
-                          <div className="text-muted extra-small" style={{fontSize: '0.7rem'}}>Rol: {role || '...'}</div>
-                        </div>
-                        <i className="bi bi-chevron-down ms-2 small text-muted"></i>
-                      </Dropdown.Toggle>
+                  <Nav.Link
+                    className={
+                      esRutaActiva(
+                        "/admin-inicio"
+                      )
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() =>
+                      navegar(
+                        "/admin-inicio"
+                      )
+                    }
+                  >
+                    Administración
+                  </Nav.Link>
 
-                      <Dropdown.Menu className="shadow-lg border-0 rounded-lg mt-2">
-                        <div className="px-3 py-2 border-bottom d-lg-none">
-                          <div className="fw-bold text-dark small">{user.email}</div>
-                          <div className="text-muted extra-small">Rol: {role}</div>
-                        </div>
-                        <Dropdown.Item onClick={() => manejarNavegacion("/seleccion-rol")} className="py-2">
-                          <i className="bi bi-arrow-left-right me-2"></i> Cambiar de rol
-                        </Dropdown.Item>
-                        {role === 'comprador' && (
-                          <Dropdown.Item onClick={() => manejarNavegacion("/perfil")} className="py-2">
-                            <i className="bi bi-person me-2"></i> Mi Perfil
-                          </Dropdown.Item>
-                        )}
-                        <Dropdown.Divider />
-                        <Dropdown.Item onClick={cerrarSesion} className="text-danger py-2">
-                          <i className="bi bi-box-arrow-right me-2"></i> Cerrar sesión
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
-                  )}
+                  <Nav.Link
+                    className={
+                      esRutaActiva(
+                        "/dasboard-admin"
+                      )
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() =>
+                      navegar(
+                        "/dasboard-admin"
+                      )
+                    }
+                  >
+                    Dashboard
+                  </Nav.Link>
                 </>
-             ) : (
-                <Nav.Link onClick={() => manejarNavegacion("/login")} className="fw-bold"><i className="bi bi-person-circle me-2"></i>Acceso</Nav.Link>
-             )}
-          </Nav>
-        </Navbar.Collapse>
+              )}
 
-        <Navbar.Offcanvas
-          id="offcanvasNavbar-expand-md"
-          aria-labelledby="offcanvasNavbarLabel-expand-md"
-          placement="end"
-          show={mostrarMenu}
-          onHide={() => setMostrarMenu(false)}
-          className="modern-offcanvas d-md-none"
-        >
-          <Offcanvas.Header closeButton>
-            <Offcanvas.Title id="offcanvasNavbarLabel-expand-md">InterMarket</Offcanvas.Title>
-          </Offcanvas.Header>
-          <Offcanvas.Body className="d-flex flex-column p-0">
-            {user ? (
+              {role === "vendedor" && (
                 <>
-                  <div className="offcanvas-user-section d-flex align-items-center gap-2">
-                    {fotoUrl ? (
-                      <img
-                        src={fotoUrl}
-                        alt="Foto de perfil"
-                        className="rounded-circle"
-                        style={{ width: 40, height: 40, objectFit: 'cover', border: '2px solid #f8f9fa' }}
-                      />
-                    ) : (
-                      <div className="user-avatar-placeholder">{(user.email || "U").charAt(0).toUpperCase()}</div>
+                  <Nav.Link
+                    className={
+                      esRutaActiva(
+                        "/vendedor"
+                      )
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() =>
+                      navegar(
+                        "/vendedor"
+                      )
+                    }
+                  >
+                    Inicio
+                  </Nav.Link>
+
+                  <Nav.Link
+                    className={
+                      esRutaActiva(
+                        "/productos"
+                      )
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() =>
+                      navegar(
+                        "/productos"
+                      )
+                    }
+                  >
+                    Productos
+                  </Nav.Link>
+
+                  <Nav.Link
+                    className={
+                      esRutaActiva(
+                        "/tiendas"
+                      )
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() =>
+                      navegar(
+                        "/tiendas"
+                      )
+                    }
+                  >
+                    Tienda
+                  </Nav.Link>
+
+                  <Nav.Link
+                    className={
+                      esRutaActiva(
+                        "/envios"
+                      )
+                        ? "active"
+                        : ""
+                    }
+                    onClick={() =>
+                      navegar(
+                        "/envios"
+                      )
+                    }
+                  >
+                    Envíos
+                  </Nav.Link>
+                </>
+              )}
+
+              {role === "comprador" && (
+                <Nav.Link
+                  className={
+                    esRutaActiva(
+                      "/catalogo"
+                    )
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() =>
+                    navegar(
+                      "/catalogo"
+                    )
+                  }
+                >
+                  Catálogo
+                </Nav.Link>
+              )}
+
+              {user && (
+                <Nav.Link
+                  className={
+                    esRutaActiva(
+                      "/mensajes"
+                    )
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() =>
+                    navegar(
+                      "/mensajes"
+                    )
+                  }
+                >
+                  Mensajes
+                </Nav.Link>
+              )}
+            </Nav>
+
+            <div className="liquid-navbar-desktop-actions">
+              {user && !esLogin && (
+                <NotificacionesDropdown />
+              )}
+
+              {role === "comprador" &&
+                !esLogin && (
+                  <button
+                    type="button"
+                    className="liquid-navbar-cart-btn"
+                    onClick={
+                      abrirCarrito
+                    }
+                  >
+                    <i className="bi bi-cart3"></i>
+
+                    <span>
+                      Carrito
+                    </span>
+
+                    {carritoCount >
+                      0 && (
+                      <Badge className="liquid-desktop-cart-count">
+                        {
+                          carritoCount
+                        }
+                      </Badge>
                     )}
+                  </button>
+                )}
+
+              {user ? (
+                <PerfilDropdown />
+              ) : (
+                <button
+                  type="button"
+                  className="liquid-login-button"
+                  onClick={() =>
+                    navegar(
+                      "/login"
+                    )
+                  }
+                >
+                  <i className="bi bi-person-circle"></i>
+                  Acceso
+                </button>
+              )}
+            </div>
+          </Navbar.Collapse>
+
+          {/* MENÚ LATERAL SOLO MÓVIL */}
+          <Navbar.Offcanvas
+            id="liquid-mobile-menu"
+            aria-labelledby="liquid-mobile-menu-title"
+            placement="end"
+            show={mostrarMenu}
+            onHide={() =>
+              setMostrarMenu(false)
+            }
+            className="liquid-mobile-offcanvas d-md-none"
+          >
+            <Offcanvas.Header
+              closeButton
+              className="liquid-offcanvas-header"
+            >
+              <Offcanvas.Title id="liquid-mobile-menu-title">
+                InterMarket
+              </Offcanvas.Title>
+            </Offcanvas.Header>
+
+            <Offcanvas.Body className="liquid-offcanvas-body">
+              {user ? (
+                <>
+                  <div className="liquid-offcanvas-user">
+                    <AvatarUsuario movil />
+
                     <div>
-                      <div className="fw-bold text-dark small">{user.email || 'Usuario'}</div>
-                      <div className="text-muted" style={{fontSize: '0.75rem'}}>Rol: {role || 'Cargando...'}</div>
+                      <strong>
+                        {nombreUsuario}
+                      </strong>
+
+                      <small>
+                        {user.email}
+                      </small>
+
+                      <span className="liquid-role-badge">
+                        {role}
+                      </span>
                     </div>
                   </div>
-                  <Nav className="flex-column">
-                    {role === 'admin' ? (
-                      <MobileNavLink ruta="/admin-inicio" icono="grid" texto="Administración" />
-                    ) : (
-                      <MobileNavLink ruta="/" icono="house" texto="Inicio" />
-                    )}
-                    {role === 'vendedor' && (
+
+                  <nav className="liquid-offcanvas-nav">
+                    {role ===
+                      "admin" && (
                       <>
-                        <MobileNavLink ruta="/productos" icono="box-seam" texto="Mis Productos" />
-                        <MobileNavLink ruta="/tiendas" icono="shop" texto="Mi Tienda" />
-                        <MobileNavLink ruta="/envios" icono="truck" texto="Envíos" />
-                        <MobileNavLink ruta="/vendedor" icono="graph-up-arrow" texto="Panel de Ventas" />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/admin-inicio"
+                            )
+                          }
+                        >
+                          <i className="bi bi-grid"></i>
+                          Administración
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/dasboard-admin"
+                            )
+                          }
+                        >
+                          <i className="bi bi-bar-chart"></i>
+                          Dashboard
+                        </button>
                       </>
                     )}
-                    {role === 'comprador' && (
+
+                    {role ===
+                      "vendedor" && (
                       <>
-                        <MobileNavLink ruta="/catalogo" icono="search" texto="Explorar Productos" />
-                        <MobileNavLink ruta="/perfil" icono="person-badge" texto="Mi Perfil" />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/vendedor"
+                            )
+                          }
+                        >
+                          <i className="bi bi-house"></i>
+                          Inicio
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/productos"
+                            )
+                          }
+                        >
+                          <i className="bi bi-box-seam"></i>
+                          Mis productos
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/tiendas"
+                            )
+                          }
+                        >
+                          <i className="bi bi-shop"></i>
+                          Mi tienda
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/envios"
+                            )
+                          }
+                        >
+                          <i className="bi bi-truck"></i>
+                          Envíos
+                        </button>
                       </>
                     )}
-                    <MobileNavLink ruta="/mensajes" icono="chat-left-dots" texto="Mensajes" />
-                    <MobileNavLink ruta="/seleccion-rol" icono="arrow-left-right" texto="Cambiar de rol" />
-                    <div className="mt-4">
-                        <Nav.Link onClick={cerrarSesion} className="mobile-nav-link mobile-logout">
-                          <i className="bi bi-box-arrow-left"></i>
-                          <span>Cerrar sesión</span>
-                        </Nav.Link>
-                    </div>
-                  </Nav>
+
+                    {role ===
+                      "comprador" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/catalogo"
+                            )
+                          }
+                        >
+                          <i className="bi bi-grid"></i>
+                          Catálogo
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navegar(
+                              "/perfil"
+                            )
+                          }
+                        >
+                          <i className="bi bi-person"></i>
+                          Mi perfil
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navegar(
+                          "/mensajes"
+                        )
+                      }
+                    >
+                      <i className="bi bi-chat-dots"></i>
+                      Mensajes
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navegar(
+                          "/seleccion-rol"
+                        )
+                      }
+                    >
+                      <i className="bi bi-arrow-left-right"></i>
+                      Cambiar de rol
+                    </button>
+
+                    <button
+                      type="button"
+                      className="liquid-offcanvas-logout"
+                      onClick={
+                        cerrarSesion
+                      }
+                    >
+                      <i className="bi bi-box-arrow-right"></i>
+                      Cerrar sesión
+                    </button>
+                  </nav>
                 </>
-            ) : (
-              <Nav className="flex-column">
-                <MobileNavLink ruta="/login" icono="person-circle" texto="Iniciar sesión" />
-                {location.pathname !== "/catalogo" && (
-                  <MobileNavLink ruta="/catalogo" icono="grid" texto="Ver Catálogo" />
-                )}
-              </Nav>
-            )}
-          </Offcanvas.Body>
-        </Navbar.Offcanvas>
-      </Container>
-    </Navbar>
+              ) : (
+                <nav className="liquid-offcanvas-nav">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navegar(
+                        "/catalogo"
+                      )
+                    }
+                  >
+                    <i className="bi bi-grid"></i>
+                    Ver catálogo
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navegar(
+                        "/login"
+                      )
+                    }
+                  >
+                    <i className="bi bi-person-circle"></i>
+                    Iniciar sesión
+                  </button>
+                </nav>
+              )}
+            </Offcanvas.Body>
+          </Navbar.Offcanvas>
+        </Container>
+      </Navbar>
+
+      {/* BARRA INFERIOR SOLO MÓVIL */}
+      {!esLogin && user && (
+        <nav className="liquid-mobile-bottom-nav d-md-none">
+          {role ===
+            "comprador" && (
+            <>
+              <MobileBottomItem
+                ruta="/catalogo"
+                icono="grid"
+                texto="Catálogo"
+              />
+
+              <button
+                type="button"
+                className="liquid-mobile-bottom-item"
+                onClick={
+                  abrirCarrito
+                }
+              >
+                <span className="liquid-mobile-bottom-icon">
+                  <i className="bi bi-cart3"></i>
+
+                  {carritoCount >
+                    0 && (
+                    <span className="liquid-bottom-cart-count">
+                      {
+                        carritoCount
+                      }
+                    </span>
+                  )}
+                </span>
+
+                <small>
+                  Carrito
+                </small>
+              </button>
+
+              <MobileBottomItem
+                ruta="/mensajes"
+                icono="chat-dots"
+                texto="Mensajes"
+              />
+
+              <MobileBottomItem
+                ruta="/perfil"
+                icono="person"
+                texto="Perfil"
+              />
+            </>
+          )}
+
+          {role ===
+            "vendedor" && (
+            <>
+              <MobileBottomItem
+                ruta="/vendedor"
+                icono="house"
+                texto="Inicio"
+              />
+
+              <MobileBottomItem
+                ruta="/productos"
+                icono="box-seam"
+                texto="Productos"
+              />
+
+              <MobileBottomItem
+                ruta="/tiendas"
+                icono="shop"
+                texto="Tienda"
+              />
+
+              <MobileBottomItem
+                ruta="/mensajes"
+                icono="chat-dots"
+                texto="Mensajes"
+              />
+            </>
+          )}
+
+          {role ===
+            "admin" && (
+            <>
+              <MobileBottomItem
+                ruta="/admin-inicio"
+                icono="grid"
+                texto="Admin"
+              />
+
+              <MobileBottomItem
+                ruta="/dasboard-admin"
+                icono="bar-chart"
+                texto="Dashboard"
+              />
+
+              <MobileBottomItem
+                ruta="/mensajes"
+                icono="chat-dots"
+                texto="Mensajes"
+              />
+
+              <button
+                type="button"
+                className="liquid-mobile-bottom-item"
+                onClick={() =>
+                  setMostrarMenu(true)
+                }
+              >
+                <span className="liquid-mobile-bottom-icon">
+                  <i className="bi bi-list"></i>
+                </span>
+
+                <small>
+                  Más
+                </small>
+              </button>
+            </>
+          )}
+        </nav>
+      )}
+    </>
   );
 };
 
