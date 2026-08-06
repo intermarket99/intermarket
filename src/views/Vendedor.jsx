@@ -163,7 +163,7 @@ const Vendedor = () => {
               // --- NUEVO: Alerta de Stock Bajo para el vendedor ---
               if (nuevoStock <= 5 && miPerfilId) {
                   await supabase.from('notificaciones').insert([{
-                      usuario_id: miPerfilId, // Usar perfil_id en lugar de user.id
+                       perfil_id: miPerfilId, // Usar perfil_id en lugar de user.id
                       titulo: '⚠️ ¡Stock Bajo!',
                       mensaje: `El producto "${producto.nombre_producto}" tiene solo ${nuevoStock} unidades disponibles.`
                   }]);
