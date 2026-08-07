@@ -1,200 +1,288 @@
-import React, { useRef, useEffect, useState } from 'react';
-import './DasboardAdmin.css';
-
-const loadTableauScript = () => {
-  return new Promise((resolve, reject) => {
-    if (window.tableau) {
-      resolve(window.tableau);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://public.tableau.com/javascripts/api/tableau-2.9.2.min.js';
-    script.async = true;
-    script.onload = () => {
-      if (window.tableau && typeof window.tableau.Viz === 'function') {
-        resolve(window.tableau);
-      } else {
-        reject(new Error('Tableau API no se cargó correctamente o no exportó Viz'));
-      }
-    };
-
-    script.onerror = () => reject(new Error('No se pudo cargar el script de Tableau'));
-    document.body.appendChild(script);
-    
-  });
-};
+import React, { useEffect, useState } from "react";
+import { Spinner } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../database/supabaseconfig";
+import { useAuth } from "../context/AuthContext";
 
 export const DasboardAdmin = () => {
-  const vizContainerRef = useRef(null);
-  const vizRef = useRef(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const vistaUrl = 'https://public.tableau.com/views/Intermaket_etl/DescuentosaplicadosenInterMaeket?:language=es-ES&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link';
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const initializeViz = async () => {
-      if (!vizContainerRef.current) return;
-
-      try {
-        const tableau = await loadTableauScript();
-
-        if (!isMounted) return;
-
-        const options = {
-          hideTabs: false,
-          toolbar: 'bottom',
-          onFirstInteractive: () => {
-            console.log('¡El tablero de Tableau está listo!');
-          },
-        };
-
-        vizRef.current = new tableau.Viz(vizContainerRef.current, vistaUrl, options);
-      } catch (error) {
-        console.error('Error inicializando Tableau:', error);
-      }
-    };
-
-    initializeViz();
-
-    return () => {
-      isMounted = false;
-      if (vizRef.current) {
-        vizRef.current.dispose();
-      }
-    };
-  }, [vistaUrl]);
-
-
-  // Segundo dashboard: usar refs y useEffect separados (no hooks dentro de funciones anidadas)
-  const vizContainerRef2 = useRef(null);
-  const vizRef2 = useRef(null);
-
-  const vistaUrl2 = 'https://public.tableau.com/views/Intermaket_etl/PromediodeVentasporTiendaenlaAplicacin?:language=es-ES&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link';
+  const [cargando, setCargando] = useState(true);
+  const [topProductos, setTopProductos] = useState([]);
+  const [tieneTienda, setTieneTienda] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const initializeViz2 = async () => {
-      if (!vizContainerRef2.current) return;
+    const cargarTopStock = async () => {
+      if (!user) return;
 
       try {
-        const tableau = await loadTableauScript();
+        setCargando(true);
 
-        if (!isMounted) return;
+        const { data: perfil } = await supabase
+          .from("perfiles")
+          .select("id_tienda")
+          .eq("id_usuario", user.id)
+          .maybeSingle();
 
-        const options = {
-          hideTabs: false,
-          toolbar: 'bottom',
-          onFirstInteractive: () => {
-            console.log('¡El segundo tablero de Tableau está listo!');
-          },
-        };
+        if (!perfil?.id_tienda) {
+          setTieneTienda(false);
+          setCargando(false);
+          return;
+        }
 
-        vizRef2.current = new tableau.Viz(vizContainerRef2.current, vistaUrl2, options);
-      } catch (error) {
-        console.error('Error inicializando segundo Tableau:', error);
+        setTieneTienda(true);
+
+        const { data, error } = await supabase
+          .from("productos")
+          .select("id_producto, nombre_producto, stock, precio_venta, imagen_url")
+          .eq("id_tienda", perfil.id_tienda)
+          .order("stock", { ascending: false, nullsFirst: false })
+          .limit(3);
+
+        if (error) throw error;
+        setTopProductos(data || []);
+      } catch (err) {
+        console.error("Error al cargar estadísticas:", err);
+      } finally {
+        setCargando(false);
       }
     };
 
-    initializeViz2();
+    cargarTopStock();
+  }, [user]);
 
-    return () => {
-      isMounted = false;
-      if (vizRef2.current) {
-        vizRef2.current.dispose();
-      }
-    };
-  }, [vistaUrl2]);
+  const getImagen = (producto) => {
+    const img = producto.imagen_url;
+    if (Array.isArray(img) && img.length > 0) return img[0];
+    if (typeof img === "string" && img) return img;
+    return null;
+  };
 
-  // Tercer dashboard: usar refs y useEffect separados (no hooks dentro de funciones anidadas)
-  const vizContainerRef3 = useRef(null);
-  const vizRef3 = useRef(null);
-  const [embed3Available, setEmbed3Available] = useState(true);
+  const rankingStyle = [
+    { bg: "#fef3c7", color: "#d97706", label: "1°" },
+    { bg: "#e2e8f0", color: "#64748b", label: "2°" },
+    { bg: "#ffedd5", color: "#c2410c", label: "3°" },
+  ];
 
-  // Usar variante /views con parámetros de embed; si sigue fallando mostramos fallback
-  const vistaUrl3 = 'https://public.tableau.com/views/Intermaket_etl/anlisisdecomprasrealizadasdentrodelaaplicacin?:language=es-ES&:display_count=n&:origin=viz_share_link&:embed=y&:showVizHome=no';
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const initializeViz3 = async () => {
-      if (!vizContainerRef3.current) return;
-
-      try {
-        const tableau = await loadTableauScript();
-
-        if (!isMounted) return;
-
-        const options = {
-          hideTabs: false,
-          toolbar: 'bottom',
-          onFirstInteractive: () => {
-            console.log('¡El tercer tablero de Tableau está listo!');
-          },
-        };
-
-        vizRef3.current = new tableau.Viz(vizContainerRef3.current, vistaUrl3, options);
-      } catch (error) {
-        console.error('Error inicializando tercer Tableau:', error);
-        setEmbed3Available(false);
-      }
-    };
-
-    initializeViz3();
-
-    return () => {
-      isMounted = false;
-      if (vizRef3.current) {
-        vizRef3.current.dispose();
-      }
-    };
-  }, [vistaUrl3]);
+  if (cargando) {
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ minHeight: "60vh", backgroundColor: "#f0f7fa" }}
+      >
+        <Spinner animation="border" style={{ color: "#0d5c63" }} />
+      </div>
+    );
+  }
 
   return (
-    <div className="dashboard-wrapper">
-      <h2 style={{margin:'0 0 18px 0', color:'#0f172a'}}>Panel de Administración</h2>
+    <div
+      style={{
+        backgroundColor: "#f0f7fa",
+        minHeight: "100vh",
+        paddingBottom: "100px",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      {/* Header */}
+      <div className="d-flex align-items-center gap-3 px-4 pt-4 pb-2">
+        <button
+          className="btn p-0 border-0 bg-transparent"
+          onClick={() => navigate(-1)}
+        >
+          <i className="bi bi-arrow-left" style={{ fontSize: "1.4rem", color: "#0f172a" }} />
+        </button>
+        <h1
+          style={{
+            fontSize: "1.35rem",
+            fontWeight: 700,
+            color: "#0d5c63",
+            margin: 0,
+          }}
+        >
+          Estadísticas
+        </h1>
+      </div>
 
-      <div className="dashboards">
-        <section className="chart chart--primary" aria-labelledby="chart-1-title">
-          <div className="chart-header">
-            <div>
-              <div id="chart-1-title" className="chart-title">Descuentos aplicados</div>
-              <div className="chart-subtitle">Resumen de descuentos por campaña</div>
-            </div>
+      <div className="px-4 mt-3">
+        {!tieneTienda ? (
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: 18,
+              padding: "40px 20px",
+              textAlign: "center",
+            }}
+          >
+            <i className="bi bi-shop" style={{ fontSize: "2.5rem", color: "#cbd5e1" }} />
+            <p style={{ color: "#94a3b8", marginTop: 12 }}>
+              No tienes una tienda registrada.
+            </p>
+            <button
+              onClick={() => navigate("/tiendas")}
+              style={{
+                backgroundColor: "#0d5c63",
+                color: "white",
+                border: "none",
+                borderRadius: 50,
+                padding: "10px 24px",
+                fontWeight: 600,
+              }}
+            >
+              Ir a Tiendas
+            </button>
           </div>
-          <div ref={vizContainerRef} className="viz-container" />
-        </section>
+        ) : (
+          <>
+            <h6
+              style={{
+                fontWeight: 600,
+                color: "#64748b",
+                fontSize: "0.9rem",
+                marginBottom: 14,
+              }}
+            >
+              Top 3 productos con más stock
+            </h6>
 
-        <section className="chart chart--secondary" aria-labelledby="chart-2-title">
-          <div className="chart-header">
-            <div>
-              <div id="chart-2-title" className="chart-title">Promedio de ventas</div>
-              <div className="chart-subtitle">Por tienda</div>
-            </div>
-          </div>
-          <div ref={vizContainerRef2} className="viz-container" />
-        </section>
+            {topProductos.length === 0 ? (
+              <div
+                style={{
+                  backgroundColor: "white",
+                  borderRadius: 16,
+                  padding: "32px 20px",
+                  textAlign: "center",
+                }}
+              >
+                <i
+                  className="bi bi-box-seam"
+                  style={{ fontSize: "2rem", color: "#cbd5e1" }}
+                />
+                <p style={{ color: "#94a3b8", marginTop: 8, marginBottom: 0 }}>
+                  No tienes productos registrados.
+                </p>
+              </div>
+            ) : (
+              <div className="d-flex flex-column gap-3">
+                {topProductos.map((producto, index) => {
+                  const img = getImagen(producto);
+                  const rank = rankingStyle[index] || rankingStyle[2];
 
-        <section className="chart chart--tertiary" aria-labelledby="chart-3-title">
-          <div className="chart-header">
-            <div>
-              <div id="chart-3-title" className="chart-title">Análisis de compras</div>
-              <div className="chart-subtitle">Comportamiento dentro de la aplicación</div>
-            </div>
-            <div>
-              {embed3Available ? null : (
-                <a href={vistaUrl3} target="_blank" rel="noreferrer" style={{fontSize:12, color:'#0f172a'}}>Abrir en nueva pestaña</a>
-              )}
-            </div>
-          </div>
-          {embed3Available ? (
-            <div ref={vizContainerRef3} className="viz-container" />
-          ) : (
-            <div style={{padding:16, borderRadius:10, background:'#f8fafc'}}>El informe no puede incrustarse aquí. <a href={vistaUrl3} target="_blank" rel="noreferrer">Ábralo en una nueva pestaña</a>.</div>
-          )}
-        </section>
+                  return (
+                    <div
+                      key={producto.id_producto}
+                      style={{
+                        backgroundColor: "white",
+                        borderRadius: 16,
+                        padding: "14px 16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      }}
+                    >
+                      {/* Ranking */}
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: "50%",
+                          backgroundColor: rank.bg,
+                          color: rank.color,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {rank.label}
+                      </div>
+
+                      {/* Imagen */}
+                      <div
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: 12,
+                          backgroundColor: "#f1f5f9",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {img ? (
+                          <img
+                            src={img}
+                            alt=""
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          <i
+                            className="bi bi-image"
+                            style={{ fontSize: "1.3rem", color: "#cbd5e1" }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: "0.95rem",
+                            color: "#0f172a",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {producto.nombre_producto}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#94a3b8",
+                            marginTop: 2,
+                          }}
+                        >
+                          C${" "}
+                          {Number(producto.precio_venta || 0).toLocaleString("es-NI", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Stock */}
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "1.1rem",
+                            color: "#0d5c63",
+                          }}
+                        >
+                          {producto.stock ?? 0}
+                        </div>
+                        <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                          en stock
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

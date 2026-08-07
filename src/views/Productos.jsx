@@ -835,17 +835,19 @@ const cargarProductos = async () => {
                 </div>
             ) : (
                 <>
-                    {/* VISTA RESPONSIVE: LOGICA DE CATEGORIAS */}
-                    
-                    {/* Vista Móvil (Tarjetas): Se oculta en pantallas grandes (lg) */}
-                    <div className="d-lg-none">
-                        <TarjetasProductos
-                            productos={productosPaginados}
-                            abrirModalEdicion={abrirModalEdicion}
-                            abrirModalEliminacion={abrirModalEliminacion}
-                            abrirModalDescuento={abrirModalDescuento}
-                        />
-                    </div>
+                  
+                    {/* Vista Móvil */}
+<div className="d-lg-none">
+ 
+  <div className="mt-3">
+    <TarjetasProductos
+      productos={productosPaginados}
+      abrirModalEdicion={abrirModalEdicion}
+      abrirModalEliminacion={abrirModalEliminacion}
+      abrirModalDescuento={abrirModalDescuento}
+    />
+  </div>
+</div>
 
                     {/* Vista Escritorio (Tabla): Solo se muestra en pantallas grandes (lg) */}
                     <div className="d-none d-lg-block">

@@ -1,128 +1,137 @@
-import React from 'react';
-import { Row, Col, Card, Button, Badge } from 'react-bootstrap';
+import React from "react";
 
-const TarjetasProductos = ({ productos, abrirModalEdicion, abrirModalEliminacion, abrirModalDescuento }) => {
-    const obtenerInfoOferta = (producto) => {
-        const precioVenta = parseFloat(producto.precio_venta || 0);
-        const precioOriginal = parseFloat(
-            producto.precio_original ??
-            producto.precio_lista ??
-            producto.precio_regular ??
-            0
-        );
+const TarjetasProductos = ({
+  productos,
+  abrirModalEdicion,
+  abrirModalEliminacion,
+  abrirModalDescuento,
+}) => {
+  const getImagen = (producto) => {
+    const img = producto.imagen_url;
+    if (Array.isArray(img) && img.length > 0) return img[0];
+    if (typeof img === "string" && img) return img;
+    return null;
+  };
 
-        const base = precioOriginal > 0 ? precioOriginal : parseFloat(producto.precio_compra || 0);
-        const esOferta = base > 0 && precioVenta > 0 && precioVenta < base;
-        const ahorro = esOferta ? base - precioVenta : 0;
-        const porcentaje = esOferta ? Math.round((ahorro / base) * 100) : 0;
-
-        return { esOferta, base, ahorro, porcentaje };
-    };
-
+  if (!productos || productos.length === 0) {
     return (
-        <Row>
-            {productos.map((producto) => {
-                const imagenProducto = Array.isArray(producto.imagen_url)
-                    ? producto.imagen_url[0]
-                    : producto.imagen_url;
-                const infoOferta = obtenerInfoOferta(producto);
-
-                return (
-                <Col key={producto.id_producto} xs={12} sm={6} md={4} lg={3} className="mb-4">
-                    <Card className="h-100 shadow-sm">
-                        {imagenProducto && (
-                            <Card.Img
-                                variant="top"
-                                src={imagenProducto}
-                                alt={producto.nombre_producto}
-                                style={{ height: '200px', objectFit: 'cover' }}
-                                onError={(e) => {
-                                    e.target.src = 'https://via.placeholder.com/200x200?text=Sin+Imagen';
-                                }}
-                            />
-                        )}
-                        <Card.Body className="d-flex flex-column">
-                            <Card.Title className="text-truncate" title={producto.nombre_producto}>
-                                {producto.nombre_producto}
-                            </Card.Title>
-                            
-                            <Card.Text className="text-muted small mb-2">
-                                {producto.descripcion?.length > 100
-                                    ? `${producto.descripcion.substring(0, 100)}...`
-                                    : producto.descripcion || 'Sin descripción'}
-                            </Card.Text>
-
-                            <div className="mb-2">
-                                <Badge bg="secondary" className="me-2">
-                                    {producto.categorias?.nombre_categoria || 'Sin categoría'}
-                                </Badge>
-                                <Badge 
-                                    bg={producto.id_estado === 1 ? 'success' : 'warning'}
-                                >
-                                    {producto.id_estado === 1 ? 'Entregado' : 'Proceso'}
-                                </Badge>
-                                {infoOferta.esOferta && (
-                                    <Badge bg="danger" className="ms-2">
-                                        Oferta -{infoOferta.porcentaje}%
-                                    </Badge>
-                                )}
-                            </div>
-
-                            <div className="mt-auto">
-                                <div className="d-flex justify-content-between align-items-center mb-3">
-                                    <div>
-                                        <small className="text-muted">Venta:</small>
-                                        <div className="fw-bold text-success">${parseFloat(producto.precio_venta || 0).toFixed(2)}</div>
-                                        {infoOferta.esOferta && (
-                                            <small className="text-muted text-decoration-line-through">
-                                                Antes: ${infoOferta.base.toFixed(2)}
-                                            </small>
-                                        )}
-                                    </div>
-                                    <div className="text-end">
-                                        <small className="text-muted">Compra:</small>
-                                        <div className="fw-bold text-primary">${parseFloat(producto.precio_compra || 0).toFixed(2)}</div>
-                                        {infoOferta.esOferta && (
-                                            <small className="d-block text-success fw-semibold">
-                                                Ahorras ${infoOferta.ahorro.toFixed(2)}
-                                            </small>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="d-flex gap-2">
-                                    <Button
-                                        variant="outline-primary"
-                                        size="sm"
-                                        onClick={() => abrirModalEdicion(producto)}
-                                        className="flex-fill"
-                                    >
-                                        <i className="bi bi-pencil"></i> Editar
-                                    </Button>
-                                    <Button
-                                        variant="outline-success"
-                                        size="sm"
-                                        onClick={() => abrirModalDescuento(producto)}
-                                        className="flex-fill"
-                                    >
-                                        <i className="bi bi-tag-fill"></i> Oferta
-                                    </Button>
-                                    <Button
-                                        variant="outline-danger"
-                                        size="sm"
-                                        onClick={() => abrirModalEliminacion(producto)}
-                                        className="flex-fill"
-                                    >
-                                        <i className="bi bi-trash"></i> Eliminar
-                                    </Button>
-                                </div>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            )})}
-        </Row>
+      <div className="text-center py-5 text-muted">
+        <i className="bi bi-box-seam" style={{ fontSize: "2.5rem", color: "#cbd5e1" }} />
+        <p className="mt-2 mb-0">No hay productos registrados.</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="d-flex flex-column gap-3 px-1">
+      {productos.map((producto) => {
+        const imagen = getImagen(producto);
+        const subtitulo =
+          producto.descripcion?.trim() ||
+          producto.categorias?.nombre_categoria ||
+          "Sin descripción";
+
+        return (
+          <div
+            key={producto.id_producto}
+            style={{
+              backgroundColor: "white",
+              borderRadius: 18,
+              padding: "12px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+            }}
+          >
+            {/* Imagen */}
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                backgroundColor: "#f1f5f9",
+                overflow: "hidden",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {imagen ? (
+                <img
+                  src={imagen}
+                  alt={producto.nombre_producto}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              ) : (
+                <i className="bi bi-image" style={{ fontSize: "1.3rem", color: "#cbd5e1" }} />
+              )}
+            </div>
+
+            {/* Info */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                  color: "#0f172a",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {producto.nombre_producto}
+              </div>
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#94a3b8",
+                  marginTop: 2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {subtitulo.length > 40 ? `${subtitulo.substring(0, 40)}...` : subtitulo}
+              </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
+              <button
+                type="button"
+                className="btn p-0 border-0 bg-transparent"
+                onClick={() => abrirModalEliminacion(producto)}
+                title="Eliminar"
+              >
+                <i className="bi bi-trash" style={{ fontSize: "1.1rem", color: "#ef4444" }} />
+              </button>
+              <button
+                type="button"
+                className="btn p-0 border-0 bg-transparent"
+                onClick={() => abrirModalDescuento(producto)}
+                title="Descuento"
+              >
+                <i className="bi bi-percent" style={{ fontSize: "1.1rem", color: "#0d5c63" }} />
+              </button>
+              <button
+                type="button"
+                className="btn p-0 border-0 bg-transparent"
+                onClick={() => abrirModalEdicion(producto)}
+                title="Editar"
+              >
+                <i className="bi bi-pencil-square" style={{ fontSize: "1.1rem", color: "#0d5c63" }} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 export default TarjetasProductos;
