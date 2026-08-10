@@ -6861,3 +6861,257 @@ body {
     border-left-width: 10.5px;
   }
 }
+
+/* =========================================================
+   MENSAJES — LISTA DE CONVERSACIONES ESTILO FIGMA
+   (usa las mismas variables --catalog-primary ya definidas
+   más arriba en App.css para mantener consistencia visual)
+   ========================================================= */
+
+.msg-conv-panel {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(20px) saturate(170%);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+
+.msg-panel-header {
+    padding: 1.25rem 1.5rem 0.75rem;
+}
+
+.msg-panel-header h5 {
+    color: var(--catalog-text, #142238);
+    font-weight: 900;
+}
+
+.msg-conv-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem 0.5rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+/* --- Card de conversación individual --- */
+.msg-conv-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+
+    padding: 0.7rem 0.85rem;
+
+    border: 1px solid transparent;
+    border-radius: 18px;
+
+    background: rgba(255, 255, 255, 0.55);
+    text-align: left;
+
+    transition: background-color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.msg-conv-item:hover {
+    background: rgba(255, 255, 255, 0.85);
+    transform: translateX(2px);
+}
+
+.msg-conv-item.activo {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(8, 127, 140, 0.25);
+    box-shadow: 0 8px 20px rgba(8, 127, 140, 0.1);
+}
+
+/* --- Avatar (foto o inicial) --- */
+.msg-conv-avatar-wrap {
+    flex-shrink: 0;
+}
+
+.msg-avatar-photo {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(18, 38, 63, 0.12);
+}
+
+.msg-avatar-photo.grande {
+    width: 46px;
+    height: 46px;
+}
+
+.msg-avatar-fallback {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+
+    background: linear-gradient(
+        145deg,
+        var(--catalog-primary, #087f8c),
+        var(--catalog-primary-light, #21a7b3)
+    );
+
+    box-shadow: 0 4px 12px rgba(8, 127, 140, 0.25);
+}
+
+.msg-avatar-fallback.grande {
+    width: 46px;
+    height: 46px;
+    font-size: 1rem;
+}
+
+/* --- Contenido de la card --- */
+.msg-conv-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.msg-conv-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.msg-conv-name {
+    color: var(--catalog-text, #142238);
+    font-size: 0.92rem;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.msg-conv-time {
+    flex-shrink: 0;
+    color: var(--catalog-muted, #6f7b89);
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+
+.msg-conv-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+}
+
+.msg-conv-preview {
+    margin: 0;
+    color: var(--catalog-muted, #6f7b89);
+    font-size: 0.78rem;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.msg-unread-badge {
+    flex-shrink: 0;
+
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 999px;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 800;
+
+    background: var(--catalog-primary, #087f8c);
+}
+
+.msg-conv-delete {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    color: #b0bcc7;
+    opacity: 0;
+
+    transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.msg-conv-item:hover .msg-conv-delete {
+    opacity: 1;
+}
+
+.msg-conv-delete:hover {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+/* --- Estado vacío --- */
+.msg-conv-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--catalog-muted, #6f7b89);
+}
+
+.msg-conv-empty i {
+    display: block;
+    font-size: 2.2rem;
+    margin-bottom: 0.6rem;
+    color: rgba(8, 127, 140, 0.25);
+}
+
+/* --- Botón de regreso en el header del chat (solo móvil) --- */
+.msg-back-btn {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+    background: rgba(8, 127, 140, 0.08);
+    color: var(--catalog-primary, #087f8c);
+
+    margin-right: 0.6rem;
+}
+
+.msg-back-btn:hover {
+    background: rgba(8, 127, 140, 0.15);
+}
+
+/* =========================================================
+   RESPONSIVE — en móvil, la lista y el chat ocupan
+   toda la pantalla por turnos (como una app de mensajería)
+   ========================================================= */
+
+@media (max-width: 991.98px) {
+    .mensajes-page {
+        margin-top: 0.5rem;
+        height: calc(100vh - 155px);
+    }
+
+    .msg-conv-panel,
+    .mensajes-chat {
+        border-radius: 22px;
+    }
+
+    .msg-panel-header {
+        padding: 1rem 1.25rem 0.5rem;
+    }
+}

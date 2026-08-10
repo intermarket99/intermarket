@@ -16,6 +16,7 @@ import {
 import logo from "../../assets/icono_intermAeview.png";
 import { supabase } from "../../database/supabaseconfig";
 import { useAuth } from "../../context/AuthContext";
+import { obtenerMiPerfil } from "../../services/perfilService";
 
 import "../../App.css";
 
@@ -185,23 +186,14 @@ const Encabezado = () => {
     const cargarDatosUsuario =
       async () => {
         try {
-          const {
-            data: perfil,
-            error: perfilError
-          } = await supabase
-            .from("perfiles")
-            .select(
-              "perfil_id, foto_perfil"
-            )
-            .eq(
-              "id_usuario",
-              user.id
-            )
-            .maybeSingle();
-
-          if (perfilError) {
-            throw perfilError;
-          }
+          /*
+           * obtenerMiPerfil es una lectura "segura": si por algún
+           * duplicado viejo llegara a haber más de una fila en
+           * perfiles para este usuario, NO truena con
+           * "JSON object requested, multiple (or no) rows returned"
+           * — simplemente toma la primera.
+           */
+          const perfil = await obtenerMiPerfil(user.id);
 
           setFotoUrl(
             perfil?.foto_perfil || ""

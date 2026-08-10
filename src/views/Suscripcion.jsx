@@ -4,6 +4,7 @@ import { Modal, Spinner } from "react-bootstrap";
 
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../database/supabaseconfig";
+import { asegurarPerfil } from "../services/perfilService";
 
 const sufijoDuracion = (duracion) => {
   switch (duracion) {
@@ -182,48 +183,6 @@ const Suscripcion = () => {
     setTarjetaGirando(false);
   };
 
-  const asegurarPerfil = async () => {
-    const {
-      data: perfiles,
-      error: perfilConsultaError
-    } = await supabase
-      .from("perfiles")
-      .select("perfil_id, id_usuario, id_tienda")
-      .eq("id_usuario", user.id)
-      .limit(1);
-
-    if (perfilConsultaError) {
-      throw new Error(
-        `No se pudo comprobar el perfil: ${perfilConsultaError.message}`
-      );
-    }
-
-    if (perfiles?.length > 0) {
-      return perfiles[0];
-    }
-
-    const {
-      data: perfilCreado,
-      error: perfilCrearError
-    } = await supabase
-      .from("perfiles")
-      .insert({
-        id_usuario: user.id,
-        id_tienda: null,
-        foto_perfil: null
-      })
-      .select("perfil_id, id_usuario, id_tienda")
-      .single();
-
-    if (perfilCrearError) {
-      throw new Error(
-        `No se pudo crear el perfil: ${perfilCrearError.message}`
-      );
-    }
-
-    return perfilCreado;
-  };
-
   const validarFormularioPago = () => {
     const numeroLimpio = limpiarNumeroTarjeta(numeroTarjeta);
 
@@ -352,7 +311,24 @@ const Suscripcion = () => {
       );
     }
 
-    await asegurarPerfil();
+    /*
+     * Antes esta función tenía su propia copia de "asegurarPerfil"
+     * (select -> si no existe, insert), separada de la que usa
+     * Registro.jsx. Como las dos hacían lo mismo de forma
+     * independiente, si un usuario se registraba y casi de
+     * inmediato se volvía vendedor, ambas podían terminar
+     * insertando su propia fila en "perfiles" para el mismo
+     * id_usuario -> perfil duplicado -> el error
+     * "JSON object requested, multiple (or no) rows returned"
+     * en cualquier .maybeSingle() posterior (por ejemplo, al
+     * mandar un mensaje).
+     *
+     * Ahora usa el mismo servicio centralizado que Registro.jsx,
+     * que tiene un candado en memoria: si ya hay una operación de
+     * "asegurar perfil" en curso para este usuario, se une a ella
+     * en vez de crear una fila nueva.
+     */
+    await asegurarPerfil(user.id);
 
     localStorage.setItem("rol-activo", "vendedor");
 

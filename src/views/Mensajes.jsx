@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Button, Col, Container, Form, Row, Spinner, Badge } from "react-bootstrap";
+import { Form, Spinner } from "react-bootstrap";
 import { supabase } from "../database/supabaseconfig";
 import NotificacionOperacion from "../components/NotificacionOperacion";
 import { useAuth } from "../context/AuthContext";
 import { enviarNotificacionPorCorreo } from "../services/emailService";
+import { obtenerMiPerfil } from "../services/perfilService";
 
 const Mensajes = () => {
     const [chats, setChats] = useState([]);
@@ -18,6 +19,16 @@ const Mensajes = () => {
     const [miPerfilId, setMiPerfilId] = useState(null);
     const scrollRef = React.useRef(null);
 
+    // Vista móvil: alterna entre "lista" y "chat" (como una app de mensajería real)
+    const [esMovil, setEsMovil] = useState(window.innerWidth < 992);
+    const [vistaMovil, setVistaMovil] = useState("lista"); // "lista" | "chat"
+
+    useEffect(() => {
+        const manejarResize = () => setEsMovil(window.innerWidth < 992);
+        window.addEventListener("resize", manejarResize);
+        return () => window.removeEventListener("resize", manejarResize);
+    }, []);
+
     const scrollToBottom = () => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -29,11 +40,19 @@ const Mensajes = () => {
     }, [mensajes]);
 
     // 1. Obtener mi Perfil ID
+    // obtenerMiPerfil es una lectura "segura": si por algún duplicado
+    // viejo llegara a haber más de una fila en perfiles para este
+    // usuario, NO truena con "JSON object requested, multiple (or no)
+    // rows returned" — simplemente toma la primera.
     useEffect(() => {
         const obtenerPerfilId = async () => {
             if (!user) return;
-            const { data } = await supabase.from('perfiles').select('perfil_id').eq('id_usuario', user.id).maybeSingle();
-            if (data) setMiPerfilId(data.perfil_id);
+            try {
+                const perfil = await obtenerMiPerfil(user.id);
+                if (perfil) setMiPerfilId(perfil.perfil_id);
+            } catch (err) {
+                console.error("Error obteniendo el perfil:", err.message);
+            }
         };
         obtenerPerfilId();
     }, [user]);
@@ -47,10 +66,10 @@ const Mensajes = () => {
                 .from("chats")
                 .select(`
                     *,
-                    comprador:perfiles!comprador_id(usuarios(username)),
-                    vendedor:perfiles!vendedor_id(usuarios(username)),
+                    comprador:perfiles!comprador_id(perfil_id, foto_perfil, usuarios(username)),
+                    vendedor:perfiles!vendedor_id(perfil_id, foto_perfil, usuarios(username)),
                     productos(nombre_producto, imagen_url),
-                    mensajes(leido, emisor_id)
+                    mensajes(id_mensaje, texto, leido, emisor_id, creado_en)
                 `)
                 .or(`comprador_id.eq.${miPerfilId},vendedor_id.eq.${miPerfilId}`)
                 .order("creado_en", { ascending: false });
@@ -70,24 +89,75 @@ const Mensajes = () => {
     }, [miPerfilId]);
 
     useEffect(() => {
-        if (!chatActivo && chats.length > 0) {
+        if (!chatActivo && chats.length > 0 && !esMovil) {
             setChatActivo(chats[0]);
         }
-    }, [chats, chatActivo]);
+    }, [chats, chatActivo, esMovil]);
+
+    const obtenerNombreOtro = (chat) => {
+        if (!chat) return "Conversación";
+        if (chat.vendedor_id === miPerfilId) {
+            return chat.comprador?.usuarios?.username || "Comprador";
+        }
+        return chat.vendedor?.usuarios?.username || "Vendedor";
+    };
+
+    const obtenerFotoOtro = (chat) => {
+        if (!chat) return null;
+        if (chat.vendedor_id === miPerfilId) {
+            return chat.comprador?.foto_perfil || null;
+        }
+        return chat.vendedor?.foto_perfil || null;
+    };
+
+    const obtenerUltimoMensaje = (chat) => {
+        if (!chat?.mensajes || chat.mensajes.length === 0) return null;
+        return [...chat.mensajes].sort(
+            (a, b) => new Date(b.creado_en) - new Date(a.creado_en)
+        )[0];
+    };
+
+    const contarNoLeidos = (chat) => {
+        if (!chat?.mensajes) return 0;
+        return chat.mensajes.filter(
+            (m) => !m.leido && m.emisor_id !== miPerfilId
+        ).length;
+    };
+
+    const formatearHora = (fecha) => {
+        if (!fecha) return "";
+        const d = new Date(fecha);
+        const hoy = new Date();
+        const esHoy = d.toDateString() === hoy.toDateString();
+
+        if (esHoy) {
+            return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+        return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
+    };
+
+    // Chats ordenados por actividad más reciente (último mensaje, o creación si no hay mensajes)
+    const chatsOrdenados = useMemo(() => {
+        return [...chats].sort((a, b) => {
+            const fechaA = obtenerUltimoMensaje(a)?.creado_en || a.creado_en;
+            const fechaB = obtenerUltimoMensaje(b)?.creado_en || b.creado_en;
+            return new Date(fechaB) - new Date(fechaA);
+        });
+    }, [chats, miPerfilId]);
 
     const chatsFiltrados = useMemo(() => {
-        if (!textoBusqueda.trim()) return chats;
+        if (!textoBusqueda.trim()) return chatsOrdenados;
         const valor = textoBusqueda.toLowerCase().trim();
-        return chats.filter((chat) => {
+        return chatsOrdenados.filter((chat) => {
             const nombreOtro = obtenerNombreOtro(chat).toLowerCase();
             const nombreProducto = (chat.productos?.nombre_producto || "").toLowerCase();
             const idChat = chat.id_chat.toLowerCase();
-            
-            return nombreOtro.includes(valor) || 
-                   nombreProducto.includes(valor) || 
+
+            return nombreOtro.includes(valor) ||
+                   nombreProducto.includes(valor) ||
                    idChat.includes(valor);
         });
-    }, [textoBusqueda, chats, miPerfilId]);
+    }, [textoBusqueda, chatsOrdenados, miPerfilId]);
 
     const eliminarChat = async (idChat) => {
         try {
@@ -97,13 +167,25 @@ const Mensajes = () => {
                 .eq("id_chat", idChat);
             if (error) throw error;
 
-            if (chatActivo?.id_chat === idChat) setChatActivo(null);
+            if (chatActivo?.id_chat === idChat) {
+                setChatActivo(null);
+                setVistaMovil("lista");
+            }
             setToast({ mostrar: true, mensaje: "Chat eliminado exitosamente.", tipo: "exito" });
             await cargarChats();
         } catch (err) {
             console.error("Error al eliminar chat:", err.message);
             setToast({ mostrar: true, mensaje: `Error al eliminar chat: ${err.message}`, tipo: "error" });
         }
+    };
+
+    const seleccionarChat = (chat) => {
+        setChatActivo(chat);
+        if (esMovil) setVistaMovil("chat");
+    };
+
+    const volverALaLista = () => {
+        setVistaMovil("lista");
     };
 
     // 2. Cargar mensajes del chat activo y suscribirse a Realtime
@@ -119,7 +201,7 @@ const Mensajes = () => {
                 .select("*")
                 .eq("id_chat", chatActivo.id_chat)
                 .order("creado_en", { ascending: true });
-            
+
             if (data) {
                 setMensajes(data);
                 // Marcar como leídos los mensajes que no son míos
@@ -130,6 +212,22 @@ const Mensajes = () => {
                         .update({ leido: true })
                         .eq("id_chat", chatActivo.id_chat)
                         .neq("emisor_id", miPerfilId);
+
+                    // Reflejar el "leído" también en la lista de chats
+                    setChats((anteriores) =>
+                        anteriores.map((c) =>
+                            c.id_chat === chatActivo.id_chat
+                                ? {
+                                      ...c,
+                                      mensajes: (c.mensajes || []).map((m) =>
+                                          m.emisor_id !== miPerfilId
+                                              ? { ...m, leido: true }
+                                              : m
+                                      )
+                                  }
+                                : c
+                        )
+                    );
                 }
             }
         };
@@ -143,7 +241,16 @@ const Mensajes = () => {
                 async (payload) => {
                     if (payload.eventType === 'INSERT') {
                         setMensajes((prev) => [...prev, payload.new]);
-                        
+
+                        // Reflejar el mensaje nuevo también en la lista de la izquierda
+                        setChats((anteriores) =>
+                            anteriores.map((c) =>
+                                c.id_chat === payload.new.id_chat
+                                    ? { ...c, mensajes: [...(c.mensajes || []), payload.new] }
+                                    : c
+                            )
+                        );
+
                         // Si el mensaje es del otro, marcarlo como leído automáticamente si el chat está abierto
                         if (payload.new.emisor_id !== miPerfilId) {
                             await supabase
@@ -161,19 +268,11 @@ const Mensajes = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [chatActivo]);
-
-    const obtenerNombreOtro = (chat) => {
-        if (!chat) return "Conversación";
-        if (chat.vendedor_id === miPerfilId) {
-            return chat.comprador?.usuarios?.username || "Comprador";
-        }
-        return chat.vendedor?.usuarios?.username || "Vendedor";
-    };
+    }, [chatActivo, miPerfilId]);
 
     const enviarMensaje = async () => {
         if (!chatActivo || !textoMensaje.trim() || !miPerfilId) return;
-        
+
         const texto = textoMensaje.trim();
         setTextoMensaje(""); // Limpiar optimista
 
@@ -189,15 +288,24 @@ const Mensajes = () => {
             setToast({ mostrar: true, mensaje: "Error al enviar mensaje.", tipo: "error" });
         } else {
             // 3. Crear notificación para el receptor
+            // OJO: la columna correcta en public.notificaciones es "perfil_id",
+            // no "usuario_id" (esa columna no existe en la tabla).
             const receptorId = chatActivo.vendedor_id === miPerfilId ? chatActivo.comprador_id : chatActivo.vendedor_id;
             if (receptorId) {
                 const titulo = 'Nuevo mensaje';
                 const msjAviso = `Tienes un nuevo mensaje en el chat.`;
-                await supabase.from('notificaciones').insert([{
-                    usuario_id: receptorId,
-                    titulo: titulo,
-                    mensaje: msjAviso
-                }]);
+
+                const { error: errorNotificacion } = await supabase
+                    .from('notificaciones')
+                    .insert([{
+                        perfil_id: receptorId,
+                        titulo: titulo,
+                        mensaje: msjAviso
+                    }]);
+
+                if (errorNotificacion) {
+                    console.error("No se pudo crear la notificación:", errorNotificacion);
+                }
 
                 const { data: receptorData } = await supabase.from('perfiles').select('usuarios(email)').eq('perfil_id', receptorId).maybeSingle();
                 if (receptorData?.usuarios?.email) {
@@ -207,157 +315,204 @@ const Mensajes = () => {
         }
     };
 
+    const AvatarConversacion = ({ chat, grande = false }) => {
+        const foto = obtenerFotoOtro(chat);
+        const inicial = obtenerNombreOtro(chat).charAt(0).toUpperCase();
+
+        if (foto) {
+            return (
+                <img
+                    src={foto}
+                    alt={obtenerNombreOtro(chat)}
+                    className={`msg-avatar-photo ${grande ? "grande" : ""}`}
+                />
+            );
+        }
+
+        return (
+            <span className={`msg-avatar-fallback ${grande ? "grande" : ""}`}>
+                {inicial}
+            </span>
+        );
+    };
+
+    const mostrarLista = !esMovil || vistaMovil === "lista";
+    const mostrarChat = !esMovil || vistaMovil === "chat";
+
     return (
-        <Container className="mensajes-page">
-          
-            <Row className="g-3">
-                <Col lg={4}>
-                    <section className="mensajes-lista">
-                        <div className="mensajes-lista-header">
-                            <h5 className="mb-0">Mensajes</h5>
-                            <small className="text-muted">Ver todo</small>
-                        </div>
-
-                        <div className="mensajes-buscador">
-                            <i className="bi bi-search" />
-                            <Form.Control
-                                placeholder="Buscar"
-                                value={textoBusqueda}
-                                onChange={(e) => setTextoBusqueda(e.target.value)}
-                            />
-                        </div>
-
-                        {cargando ? (
-                            <div className="text-center my-5">
-                                <Spinner animation="border" variant="success" />
+        <div className="mensajes-page container-fluid">
+            <div className="row g-3 h-100">
+                {mostrarLista && (
+                    <div className="col-lg-4 h-100">
+                        <section className="mensajes-lista msg-conv-panel">
+                            <div className="msg-panel-header">
+                                <h5 className="mb-0">Mensajes</h5>
                             </div>
-                        ) : (
-                            <div className="mensajes-items">
-                                {chatsFiltrados.map((chat) => (
-                                    <button
-                                        type="button"
-                                        key={chat.id_chat}
-                                        className={`mensajes-item ${chatActivo?.id_chat === chat.id_chat ? "activo" : ""}`}
-                                        onClick={() => setChatActivo(chat)}
-                                    >
-                                        <div className="mensajes-avatar" style={{ backgroundColor: chatActivo?.id_chat === chat.id_chat ? 'var(--color-primario)' : '#94a3b8' }}>
-                                            {obtenerNombreOtro(chat).charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="mensajes-item-body">
-                                            <div className="mensajes-item-top">
-                                                <strong className="text-truncate" style={{ maxWidth: '140px' }}>
-                                                    {obtenerNombreOtro(chat)}
-                                                </strong>
-                                                <div className="d-flex flex-column align-items-end">
-                                                    <small className="text-muted" style={{ fontSize: '0.65rem' }}>
-                                                        {new Date(chat.creado_en).toLocaleDateString()}
-                                                    </small>
-                                                    {chat.mensajes?.filter(m => !m.leido && m.emisor_id !== miPerfilId).length > 0 && (
-                                                        <Badge bg="primary" pill className="mt-1" style={{ fontSize: '0.6rem' }}>
-                                                            {chat.mensajes.filter(m => !m.leido && m.emisor_id !== miPerfilId).length}
-                                                        </Badge>
-                                                    )}
+
+                            <div className="mensajes-buscador">
+                                <i className="bi bi-search" />
+                                <Form.Control
+                                    placeholder="Buscar"
+                                    value={textoBusqueda}
+                                    onChange={(e) => setTextoBusqueda(e.target.value)}
+                                />
+                            </div>
+
+                            {cargando ? (
+                                <div className="text-center my-5">
+                                    <Spinner animation="border" variant="success" />
+                                </div>
+                            ) : (
+                                <div className="msg-conv-list">
+                                    {chatsFiltrados.map((chat) => {
+                                        const ultimo = obtenerUltimoMensaje(chat);
+                                        const noLeidos = contarNoLeidos(chat);
+                                        const activo = chatActivo?.id_chat === chat.id_chat;
+
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={chat.id_chat}
+                                                className={`msg-conv-item ${activo ? "activo" : ""}`}
+                                                onClick={() => seleccionarChat(chat)}
+                                            >
+                                                <div className="msg-conv-avatar-wrap">
+                                                    <AvatarConversacion chat={chat} />
                                                 </div>
-                                            </div>
-                                            <div className="d-flex justify-content-between align-items-center">
-                                                <small className="text-muted text-truncate" style={{ fontSize: '0.75rem' }}>
-                                                    ID: {chat.id_chat.slice(0, 8)}
-                                                </small>
-                                                <Button
-                                                    variant="link"
-                                                    size="sm"
-                                                    className="text-danger p-0 ms-2"
+
+                                                <div className="msg-conv-body">
+                                                    <div className="msg-conv-top">
+                                                        <strong className="msg-conv-name">
+                                                            {obtenerNombreOtro(chat)}
+                                                        </strong>
+                                                        <span className="msg-conv-time">
+                                                            {formatearHora(ultimo?.creado_en || chat.creado_en)}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="msg-conv-bottom">
+                                                        <p className="msg-conv-preview">
+                                                            {ultimo?.texto || "Inicia la conversación"}
+                                                        </p>
+
+                                                        {noLeidos > 0 && (
+                                                            <span className="msg-unread-badge">
+                                                                {noLeidos > 9 ? "9+" : noLeidos}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <span
+                                                    className="msg-conv-delete"
+                                                    role="button"
+                                                    tabIndex={0}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         eliminarChat(chat.id_chat);
                                                     }}
                                                 >
-                                                    <i className="bi bi-trash-fill" style={{ fontSize: '0.8rem' }} />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                                {!cargando && chatsFiltrados.length === 0 && (
-                                    <div className="text-center text-muted py-4">No hay chats disponibles.</div>
-                                )}
-                            </div>
-                        )}
-                    </section>
-                </Col>
-
-                <Col lg={8}>
-                    <section className="mensajes-chat">
-                        {chatActivo ? (
-                            <>
-                                <header className="mensajes-chat-header shadow-sm">
-                                    <div className="mensajes-avatar grande">
-                                        {obtenerNombreOtro(chatActivo).charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="ms-3">
-                                        <h6 className="mb-0 fw-bold">{obtenerNombreOtro(chatActivo)}</h6>
-                                        <div className="d-flex align-items-center gap-2">
-                                            <small className="text-muted">Producto: {chatActivo.productos?.nombre_producto || "No especificado"}</small>
-                                            <span className="text-muted" style={{ fontSize: '0.7rem' }}>•</span>
-                                            <small className="text-muted">ID: {chatActivo.id_chat.slice(0, 8)}</small>
-                                        </div>
-                                    </div>
-                                </header>
-
-                                <div className="mensajes-chat-cuerpo" ref={scrollRef}>
-                                    {mensajes.map((mensaje) => {
-                                        const esMio = mensaje.emisor_id === miPerfilId;
-                                        return (
-                                            <div
-                                                key={mensaje.id_mensaje}
-                                                className={`burbuja-wrapper ${esMio ? "yo" : "otro"}`}
-                                            >
-                                                <div className="burbuja-mensaje">
-                                                    <p>{mensaje.texto}</p>
-                                                    <div className="d-flex align-items-center justify-content-end gap-1">
-                                                        <small>{new Date(mensaje.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
-                                                        {esMio && (
-                                                            <i className={`bi bi-check2${mensaje.leido ? '-all text-primary' : ''}`} style={{ fontSize: '0.8rem' }} />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                    <i className="bi bi-trash3" />
+                                                </span>
+                                            </button>
                                         );
                                     })}
+                                    {!cargando && chatsFiltrados.length === 0 && (
+                                        <div className="msg-conv-empty">
+                                            <i className="bi bi-chat-square-text" />
+                                            <p>No hay chats disponibles.</p>
+                                        </div>
+                                    )}
                                 </div>
+                            )}
+                        </section>
+                    </div>
+                )}
 
-                                <footer className="mensajes-chat-footer">
-                                    <button type="button" className="btn btn-link text-dark p-0">
-                                        <i className="bi bi-plus-lg" />
-                                    </button>
-                                    <Form.Control
-                                        placeholder="Enviar mensaje"
-                                        value={textoMensaje}
-                                        onChange={(e) => setTextoMensaje(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                e.preventDefault();
-                                                enviarMensaje();
-                                            }
-                                        }}
-                                    />
-                                    <button type="button" className="btn btn-link text-primary p-0" onClick={enviarMensaje}>
-                                        <i className="bi bi-send-fill" />
-                                    </button>
-                                </footer>
-                            </>
-                        ) : (
-                            <div className="h-100 d-flex flex-column justify-content-center align-items-center text-muted bg-light rounded-4 border-dashed border-2">
-                                <div className="bg-white p-4 rounded-circle shadow-sm mb-3">
-                                    <i className="bi bi-chat-dots text-primary" style={{ fontSize: '3rem' }} />
+                {mostrarChat && (
+                    <div className="col-lg-8 h-100">
+                        <section className="mensajes-chat">
+                            {chatActivo ? (
+                                <>
+                                    <header className="mensajes-chat-header shadow-sm">
+                                        {esMovil && (
+                                            <button
+                                                type="button"
+                                                className="msg-back-btn"
+                                                onClick={volverALaLista}
+                                                aria-label="Volver a la lista"
+                                            >
+                                                <i className="bi bi-arrow-left" />
+                                            </button>
+                                        )}
+
+                                        <div className="msg-conv-avatar-wrap">
+                                            <AvatarConversacion chat={chatActivo} grande />
+                                        </div>
+
+                                        <div className="ms-3">
+                                            <h6 className="mb-0 fw-bold">{obtenerNombreOtro(chatActivo)}</h6>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <small className="text-muted">Producto: {chatActivo.productos?.nombre_producto || "No especificado"}</small>
+                                            </div>
+                                        </div>
+                                    </header>
+
+                                    <div className="mensajes-chat-cuerpo" ref={scrollRef}>
+                                        {mensajes.map((mensaje) => {
+                                            const esMio = mensaje.emisor_id === miPerfilId;
+                                            return (
+                                                <div
+                                                    key={mensaje.id_mensaje}
+                                                    className={`burbuja-wrapper ${esMio ? "yo" : "otro"}`}
+                                                >
+                                                    <div className="burbuja-mensaje">
+                                                        <p>{mensaje.texto}</p>
+                                                        <div className="d-flex align-items-center justify-content-end gap-1">
+                                                            <small>{new Date(mensaje.creado_en).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                                                            {esMio && (
+                                                                <i className={`bi bi-check2${mensaje.leido ? '-all text-primary' : ''}`} style={{ fontSize: '0.8rem' }} />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <footer className="mensajes-chat-footer">
+                                        <button type="button" className="btn btn-link text-dark p-0">
+                                            <i className="bi bi-plus-lg" />
+                                        </button>
+                                        <Form.Control
+                                            placeholder="Enviar mensaje"
+                                            value={textoMensaje}
+                                            onChange={(e) => setTextoMensaje(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    enviarMensaje();
+                                                }
+                                            }}
+                                        />
+                                        <button type="button" className="btn btn-link text-primary p-0" onClick={enviarMensaje}>
+                                            <i className="bi bi-send-fill" />
+                                        </button>
+                                    </footer>
+                                </>
+                            ) : (
+                                <div className="h-100 d-flex flex-column justify-content-center align-items-center text-muted bg-light rounded-4 border-dashed border-2">
+                                    <div className="bg-white p-4 rounded-circle shadow-sm mb-3">
+                                        <i className="bi bi-chat-dots text-primary" style={{ fontSize: '3rem' }} />
+                                    </div>
+                                    <h5 className="fw-bold">Tus Mensajes</h5>
+                                    <p className="small px-4 text-center">Selecciona una conversación de la izquierda para ver los detalles y mensajes del producto.</p>
                                 </div>
-                                <h5 className="fw-bold">Tus Mensajes</h5>
-                                <p className="small px-4 text-center">Selecciona una conversación de la izquierda para ver los detalles y mensajes del producto.</p>
-                            </div>
-                        )}
-                    </section>
-                </Col>
-            </Row>
+                            )}
+                        </section>
+                    </div>
+                )}
+            </div>
 
             <NotificacionOperacion
                 mostrar={toast.mostrar}
@@ -365,7 +520,7 @@ const Mensajes = () => {
                 tipo={toast.tipo}
                 onCerrar={() => setToast((prev) => ({ ...prev, mostrar: false }))}
             />
-        </Container>
+        </div>
     );
 };
 

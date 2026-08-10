@@ -10,6 +10,7 @@ import {
 import FormularioRegistro from "../components/login/FormularioRegistro";
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
+import { asegurarPerfil } from "../services/perfilService";
 import logo from "../assets/icono_intermAeview.png";
 import "../App.css";
 
@@ -205,57 +206,6 @@ function Registro() {
     return usuarioRecuperado;
   };
 
-  /*
-   * También garantiza que exista una fila
-   * en public.perfiles.
-   */
-  const asegurarPerfil = async (usuarioId) => {
-    const {
-      data: perfilExistente,
-      error: consultarPerfilError
-    } = await supabase
-      .from("perfiles")
-      .select(
-        "perfil_id, id_usuario, id_tienda, foto_perfil"
-      )
-      .eq("id_usuario", usuarioId)
-      .limit(1)
-      .maybeSingle();
-
-    if (consultarPerfilError) {
-      throw new Error(
-        `No se pudo comprobar el perfil: ${consultarPerfilError.message}`
-      );
-    }
-
-    if (perfilExistente) {
-      return perfilExistente;
-    }
-
-    const {
-      data: perfilCreado,
-      error: crearPerfilError
-    } = await supabase
-      .from("perfiles")
-      .insert({
-        id_usuario: usuarioId,
-        id_tienda: null,
-        foto_perfil: null
-      })
-      .select(
-        "perfil_id, id_usuario, id_tienda, foto_perfil"
-      )
-      .single();
-
-    if (crearPerfilError) {
-      throw new Error(
-        `No se pudo crear el perfil: ${crearPerfilError.message}`
-      );
-    }
-
-    return perfilCreado;
-  };
-
   const registrarUsuario = async () => {
     setRegistroPorCorreoEnProceso(true);
 
@@ -358,9 +308,10 @@ function Registro() {
         correoLimpio
       );
 
-      await asegurarPerfil(
-        data.user.id
-      );
+      // Usa el servicio centralizado: si el listener de OAuth
+      // llegara a dispararse casi al mismo tiempo, ambas llamadas
+      // se resuelven con el MISMO perfil, nunca crean dos.
+      await asegurarPerfil(data.user.id);
 
       localStorage.setItem(
         "rol-activo",
@@ -471,9 +422,7 @@ function Registro() {
           user.email
         );
 
-        await asegurarPerfil(
-          user.id
-        );
+        await asegurarPerfil(user.id);
 
         if (
           !localStorage.getItem(

@@ -3,6 +3,7 @@ import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { supabase } from '../../database/supabaseconfig';
 import { useAuth } from '../../context/AuthContext';
 import { enviarNotificacionPorCorreo } from '../../services/emailService';
+import { obtenerMiPerfil } from '../../services/perfilService';
 
 const ModalMensaje = ({ mostrar, setMostrar, producto }) => {
     const { user } = useAuth();
@@ -20,13 +21,12 @@ const ModalMensaje = ({ mostrar, setMostrar, producto }) => {
             setExito(false);
 
             // 1. Obtener perfil_id del comprador actual
-            const { data: compradorData, error: errorComprador } = await supabase
-                .from('perfiles')
-                .select('perfil_id')
-                .eq('id_usuario', user.id)
-                .maybeSingle();
-
-            if (errorComprador) throw errorComprador;
+            // Se usa obtenerMiPerfil (lectura segura) en vez de un
+            // .maybeSingle() directo: si por algún duplicado viejo
+            // llegara a haber más de una fila, esto NO truena con
+            // "JSON object requested, multiple (or no) rows returned",
+            // simplemente toma la primera.
+            const compradorData = await obtenerMiPerfil(user.id);
             if (!compradorData) throw new Error("Perfil de comprador no encontrado.");
 
             // 2. Obtener perfil_id del vendedor
@@ -82,13 +82,23 @@ const ModalMensaje = ({ mostrar, setMostrar, producto }) => {
             if (errorMensaje) throw errorMensaje;
 
             // 5. Crear notificación para el vendedor
+            // OJO: la tabla public.notificaciones usa la columna "perfil_id",
+            // NO "usuario_id" (esa columna no existe y el insert fallaba en
+            // silencio porque no se revisaba el error).
             const titulo = 'Nuevo mensaje recibido';
             const msjAviso = `Alguien está interesado en tu producto: ${producto.nombre_producto}`;
-            await supabase.from('notificaciones').insert([{
-                usuario_id: vendedorData.perfil_id,
-                titulo: titulo,
-                mensaje: msjAviso
-            }]);
+
+            const { error: errorNotificacion } = await supabase
+                .from('notificaciones')
+                .insert([{
+                    perfil_id: vendedorData.perfil_id,
+                    titulo: titulo,
+                    mensaje: msjAviso
+                }]);
+
+            if (errorNotificacion) {
+                console.error('No se pudo crear la notificación:', errorNotificacion);
+            }
 
             if (vendedorData.usuarios?.email) {
                 enviarNotificacionPorCorreo(vendedorData.usuarios.email, titulo, msjAviso);
