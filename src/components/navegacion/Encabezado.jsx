@@ -17,6 +17,7 @@ import logo from "../../assets/icono_intermAeview.png";
 import { supabase } from "../../database/supabaseconfig";
 import { useAuth } from "../../context/AuthContext";
 import { obtenerMiPerfil } from "../../services/perfilService";
+import { leerCarritoGuardado } from "../../utils/carritoStorage";
 
 import "../../App.css";
 
@@ -115,15 +116,18 @@ const Encabezado = () => {
     };
   }, []);
 
-  // Leer cantidad del carrito
+  /*
+   * Leer cantidad del carrito.
+   * El carrito ahora se guarda con una clave por usuario
+   * (ver src/utils/carritoStorage.js) para que no se comparta
+   * entre cuentas distintas en el mismo navegador. Por eso este
+   * efecto depende de user?.id: si cambias de cuenta, vuelve a
+   * registrar el listener y recalcula usando la clave de la
+   * cuenta que está activa en ese momento.
+   */
   const actualizarCarritoCount = () => {
     try {
-      const carritoGuardado =
-        JSON.parse(
-          localStorage.getItem(
-            "carrito"
-          ) || "[]"
-        );
+      const carritoGuardado = leerCarritoGuardado(user?.id);
 
       const cantidad =
         carritoGuardado.reduce(
@@ -170,7 +174,7 @@ const Encabezado = () => {
         actualizarCarritoCount
       );
     };
-  }, []);
+  }, [user?.id]);
 
   // Perfil y notificaciones
   useEffect(() => {

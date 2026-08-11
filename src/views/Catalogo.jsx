@@ -8,6 +8,7 @@ import {
 
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
+import { leerCarritoGuardado, guardarCarrito } from "../utils/carritoStorage";
 
 import TarjetaCatalogo from "../components/catalogo/TarjetaCatalogo";
 import TarjetaCatalogoMovile from "../components/catalogo/TarjetaCatalogoMovile";
@@ -84,11 +85,16 @@ function Catalogo() {
         };
     }, []);
 
+    /*
+     * Carga el carrito correspondiente al usuario actual.
+     * Depende de user?.id a propósito: si el usuario cambia
+     * (inicia sesión con otra cuenta, o entra con una cuenta nueva),
+     * este efecto se vuelve a ejecutar y carga el carrito de ESA
+     * cuenta (vacío si nunca ha agregado nada), en vez de arrastrar
+     * lo que hubiera quedado de una sesión anterior en el navegador.
+     */
     useEffect(() => {
-        const carritoGuardado = JSON.parse(
-            localStorage.getItem("carrito") || "[]"
-        );
-
+        const carritoGuardado = leerCarritoGuardado(user?.id);
         setCarrito(carritoGuardado);
 
         const abrirCarrito = () => {
@@ -106,7 +112,7 @@ function Catalogo() {
                 abrirCarrito
             );
         };
-    }, []);
+    }, [user?.id]);
 
     useEffect(() => {
         const temporizador = setTimeout(() => {
@@ -371,15 +377,17 @@ function Catalogo() {
         setMostrarModalPostCompra(true);
     };
 
+    /*
+     * Guarda el carrito bajo la clave del usuario actual
+     * (ver src/utils/carritoStorage.js), en vez de una clave
+     * global compartida por todas las cuentas.
+     */
     const actualizarCarritoGlobal = (
         nuevoCarrito
     ) => {
         setCarrito(nuevoCarrito);
 
-        localStorage.setItem(
-            "carrito",
-            JSON.stringify(nuevoCarrito)
-        );
+        guardarCarrito(user?.id, nuevoCarrito);
 
         window.dispatchEvent(
             new Event(

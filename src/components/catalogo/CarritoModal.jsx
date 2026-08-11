@@ -54,8 +54,6 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
                 : item
         );
         setCarrito(nuevoCarrito);
-        localStorage.setItem('carrito', JSON.stringify(nuevoCarrito));
-        window.dispatchEvent(new Event('carritoActualizado'));
     };
 
     const eliminarDelCarrito = (itemCarrito) => {
@@ -65,14 +63,10 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
               item.color_seleccionado === itemCarrito.color_seleccionado)
         );
         setCarrito(nuevoCarrito);
-        localStorage.setItem('carrito', JSON.stringify(nuevoCarrito));
-        window.dispatchEvent(new Event('carritoActualizado'));
     };
 
     const vaciarCarrito = () => {
         setCarrito([]);
-        localStorage.removeItem('carrito');
-        window.dispatchEvent(new Event('carritoActualizado'));
     };
 
     const asegurarArray = (valor) => {
@@ -114,8 +108,6 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
         }
 
         setCarrito(nuevoCarrito);
-        localStorage.setItem('carrito', JSON.stringify(nuevoCarrito));
-        window.dispatchEvent(new Event('carritoActualizado'));
     };
 
     const validarVariantes = () => {
@@ -135,6 +127,80 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
         return true;
     };
 
+    /*
+     * "Confirmar compra" ahora registra la venta directamente
+     * (a través de la función simular-pago, que inserta en
+     * ventas/pedidos en tu base de datos) en vez de redirigir a
+     * Stripe. Al terminar, limpia el carrito y abre el modal de
+     * post-compra con los productos comprados.
+     *
+     * Nota: la función realizarCompra() (flujo con Stripe) se deja
+     * abajo sin usar por si en el futuro quieres reactivar el pago
+     * real; el botón del formulario ya no la llama.
+     */
+    const simularCompra = async () => {
+        if (!user) {
+            alert("Debes iniciar sesión para realizar una compra.");
+            return;
+        }
+
+        if (!validarVariantes()) return;
+
+        if (!idDireccionSel) {
+            alert("Por favor, selecciona una dirección de entrega.");
+            return;
+        }
+
+        try {
+            setProcesando(true);
+
+            // Se captura ANTES de limpiar el carrito, para poder
+            // mostrarlos en el modal de post-compra.
+            const itemsComprados = [...carrito];
+
+            const idOperacion = Date.now().toString(); // ID único para esta operación
+            const response = await fetch('/.netlify/functions/simular-pago', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: session?.access_token ? `Bearer ${session.access_token}` : '',
+                },
+                body: JSON.stringify({ 
+                    carrito, 
+                    total, 
+                    id_operacion: idOperacion,
+                    id_direccion: idDireccionSel
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error al procesar la compra');
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                setCarrito([]);
+                setMostrar(false);
+
+                if (typeof onCompraExitosa === 'function') {
+                    onCompraExitosa(itemsComprados);
+                }
+            }
+        } catch (err) {
+            console.error("Error al procesar la compra:", err);
+            alert("Ocurrió un error al procesar tu compra: " + err.message);
+        } finally {
+            setProcesando(false);
+        }
+    };
+
+    /*
+     * Flujo original con Stripe Checkout. Ya no está conectado al
+     * botón "Confirmar compra" (ver simularCompra arriba), pero se
+     * deja aquí por si más adelante quieres volver a habilitar el
+     * pago real con tarjeta.
+     */
     const realizarCompra = async () => {
         if (!user) {
             alert("Debes iniciar sesión como comprador para realizar una compra.");
@@ -190,57 +256,6 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
                 ? "Error de URL: Posiblemente una imagen de producto es demasiado grande o inválida para Stripe."
                 : `Ocurrió un error al procesar tu compra: ${err.message}`;
             alert(mensajeError);
-        } finally {
-            setProcesando(false);
-        }
-    };
-
-    const simularCompra = async () => {
-        if (!user) {
-            alert("Debes iniciar sesión para simular una compra.");
-            return;
-        }
-
-        if (!validarVariantes()) return;
-
-        if (!idDireccionSel) {
-            alert("Por favor, selecciona una dirección de entrega.");
-            return;
-        }
-
-        try {
-            setProcesando(true);
-            const idOperacion = Date.now().toString(); // ID único para esta operación
-            const response = await fetch('/.netlify/functions/simular-pago', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: session?.access_token ? `Bearer ${session.access_token}` : '',
-                },
-                body: JSON.stringify({ 
-                    carrito, 
-                    total, 
-                    id_operacion: idOperacion,
-                    id_direccion: idDireccionSel
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Error en la simulación');
-            }
-
-            const data = await response.json();
-            if (data.success) {
-                alert('¡Pago Simulado Exitosamente! La venta ha sido registrada.');
-                setCarrito([]);
-                localStorage.removeItem('carrito');
-                window.dispatchEvent(new Event('carritoActualizado'));
-                setMostrar(false);
-            }
-        } catch (err) {
-            console.error("Error en simulación:", err);
-            alert("Error al simular el pago: " + err.message);
         } finally {
             setProcesando(false);
         }
@@ -445,7 +460,7 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
                     <button
                         type="button"
                         className="cg-confirm-btn"
-                        onClick={realizarCompra}
+                        onClick={simularCompra}
                         disabled={procesando}
                     >
                         <span className="cg-confirm-sheen" aria-hidden="true"></span>
