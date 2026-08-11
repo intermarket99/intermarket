@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Row, Col, Badge, Spinner, Button, Card } from 'react-bootstrap';
 import { supabase } from '../../database/supabaseconfig';
+import MapaTienda from "../mapas/MapaTienda";
 
 const ModalTienda = ({ mostrar, onCerrar, tiendaId, onVerProducto }) => {
     const [tienda, setTienda] = useState(null);
@@ -100,6 +101,10 @@ const ModalTienda = ({ mostrar, onCerrar, tiendaId, onVerProducto }) => {
             </Modal.Header>
 
             <Modal.Body className="p-0">
+                    <MapaTienda
+                        tienda={tienda}
+                        activo={mostrar}
+                        />
                 {/* Filtros de Categoría */}
                 <div className="bg-white border-bottom px-4 py-3 d-flex gap-2 overflow-auto" style={{ scrollbarWidth: 'none' }}>
                     <button

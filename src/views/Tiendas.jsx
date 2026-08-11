@@ -20,9 +20,12 @@ const Tiendas = () => {
   const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
 
   const [nuevaTienda, setNuevaTienda] = useState({
-    nombre_tienda: "",
-    imagen_url: "",
-  });
+  nombre_tienda: "",
+  imagen_url: "",
+  direccion: "",
+  latitud: null,
+  longitud: null,
+});
 
   // Nombre del usuario para el saludo
   const nombreUsuario =
@@ -110,6 +113,22 @@ const Tiendas = () => {
     setTiendaEditar((prev) => ({ ...prev, archivo_imagen: archivo }));
   };
 
+  const manejoCambioUbicacion = (ubicacion) => {
+  setNuevaTienda((prev) => ({
+    ...prev,
+    ...ubicacion,
+  }));
+};
+
+const manejoCambioUbicacionEdicion = (
+  ubicacion
+) => {
+  setTiendaEditar((prev) => ({
+    ...prev,
+    ...ubicacion,
+  }));
+};
+
   const abrirModalEdicion = (tienda) => {
     setTiendaEditar(tienda);
     setMostrarModalEdicion(true);
@@ -139,9 +158,21 @@ const Tiendas = () => {
       }
 
       const payload = {
-        nombre_tienda: nuevaTienda.nombre_tienda.trim(),
-        imagen_url: urlPublica,
-      };
+      nombre_tienda:
+        nuevaTienda.nombre_tienda.trim(),
+
+      imagen_url: urlPublica,
+
+      direccion:
+        nuevaTienda.direccion?.trim() ||
+        null,
+
+      latitud:
+        nuevaTienda.latitud ?? null,
+
+      longitud:
+        nuevaTienda.longitud ?? null,
+    };
 
       const { data, error } = await supabase
         .from("tiendas")
@@ -164,7 +195,14 @@ const Tiendas = () => {
 
       await cargarTiendas();
       setMostrarModalRegistro(false);
-      setNuevaTienda({ nombre_tienda: "", imagen_url: "", archivo_imagen: null });
+      setNuevaTienda({
+        nombre_tienda: "",
+        imagen_url: "",
+        direccion: "",
+        latitud: null,
+        longitud: null,
+        archivo_imagen: null,
+      });
       setToast({ mostrar: true, mensaje: "Tienda registrada exitosamente.", tipo: "exito" });
     } catch (err) {
       console.error("Error al registrar tienda:", err.message);
@@ -198,8 +236,20 @@ const Tiendas = () => {
       }
 
       const payload = {
-        nombre_tienda: tiendaEditar.nombre_tienda.trim(),
+        nombre_tienda:
+          tiendaEditar.nombre_tienda.trim(),
+
         imagen_url: urlPublica,
+
+        direccion:
+          tiendaEditar.direccion?.trim() ||
+          null,
+
+        latitud:
+          tiendaEditar.latitud ?? null,
+
+        longitud:
+          tiendaEditar.longitud ?? null,
       };
 
       const { error } = await supabase
@@ -502,16 +552,32 @@ const Tiendas = () => {
         nuevaTienda={nuevaTienda}
         manejoCambioInput={manejoCambioInput}
         manejoCambioArchivo={manejoCambioArchivo}
+        manejoCambioUbicacion={
+          manejoCambioUbicacion
+        }
         agregarTienda={agregarTienda}
       />
 
-      <ModalEdicionTienda
-        mostrarModalEdicion={mostrarModalEdicion}
-        setMostrarModalEdicion={setMostrarModalEdicion}
+    <ModalEdicionTienda
+        mostrarModalEdicion={
+          mostrarModalEdicion
+        }
+        setMostrarModalEdicion={
+          setMostrarModalEdicion
+        }
         tiendaEditar={tiendaEditar}
-        manejoCambioInputEdicion={manejoCambioInputEdicion}
-        manejoCambioArchivoActualizar={manejoCambioArchivoActualizar}
-        actualizarTienda={actualizarTienda}
+        manejoCambioInputEdicion={
+          manejoCambioInputEdicion
+        }
+        manejoCambioArchivoActualizar={
+          manejoCambioArchivoActualizar
+        }
+        manejoCambioUbicacionEdicion={
+          manejoCambioUbicacionEdicion
+        }
+        actualizarTienda={
+          actualizarTienda
+        }
       />
 
       <ModalEliminacionTienda

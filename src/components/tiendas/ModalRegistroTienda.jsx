@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Form, Button } from "react-bootstrap";
+import SelectorUbicacionTienda from "../mapas/SelectorUbicacionTienda";
 
 const ModalRegistroTienda = ({
   mostrarModal,
@@ -7,8 +8,10 @@ const ModalRegistroTienda = ({
   nuevaTienda,
   manejoCambioInput,
   manejoCambioArchivo,
+  manejoCambioUbicacion,
   agregarTienda,
 }) => {
+
   const [deshabilitado, setDeshabilitado] = useState(false);
 
   const handleGuardar = async () => {
@@ -158,6 +161,17 @@ const ModalRegistroTienda = ({
                 </div>
               )}
             </div>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <SelectorUbicacionTienda
+              value={nuevaTienda}
+              onChange={
+                manejoCambioUbicacion
+              }
+              activo={mostrarModal}
+            />
+
           </Form.Group>
         </Form>
       </Modal.Body>

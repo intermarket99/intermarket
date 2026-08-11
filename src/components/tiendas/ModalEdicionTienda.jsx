@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Modal, Form, Button } from "react-bootstrap";
+import SelectorUbicacionTienda from "../mapas/SelectorUbicacionTienda";
 
 const ModalEdicionTienda = ({
   mostrarModalEdicion,
@@ -7,6 +8,7 @@ const ModalEdicionTienda = ({
   tiendaEditar,
   manejoCambioInputEdicion,
   manejoCambioArchivoActualizar,
+  manejoCambioUbicacionEdicion,
   actualizarTienda,
 }) => {
   const [deshabilitado, setDeshabilitado] = useState(false);
@@ -160,6 +162,18 @@ const ModalEdicionTienda = ({
               )}
             </div>
           </Form.Group>
+          <Form.Group className="mb-3">
+            <SelectorUbicacionTienda
+              value={tiendaEditar}
+              onChange={
+                manejoCambioUbicacionEdicion
+              }
+              activo={
+                mostrarModalEdicion
+              }
+            />
+
+</Form.Group>
         </Form>
       </Modal.Body>
 
