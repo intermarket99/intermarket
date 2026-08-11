@@ -7115,3 +7115,154 @@ body {
         padding: 1rem 1.25rem 0.5rem;
     }
 }
+
+/* ============================================================
+   SUSCRIPCION — FONDO CLARO (override)
+   ======================= */
+
+.susc-page {
+  background: linear-gradient(
+    135deg,
+    #F8D6D6 0%,
+    #EEDCE6 35%,
+    #D3E9F1 65%,
+    #A9EEFF 100%
+  );
+}
+
+.susc-blob {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.susc-title {
+  color: var(--color-primario, #10454F);
+  text-shadow: none;
+}
+
+.susc-subtitle {
+  color: rgba(16, 69, 79, 0.65);
+}
+
+.susc-alert {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(220, 53, 69, 0.35);
+  color: #b42335;
+}
+
+.susc-plan-nombre {
+  color: var(--color-primario, #10454F);
+}
+
+.susc-plan-precio {
+  color: #0c333b;
+}
+
+.susc-plan-precio small {
+  color: rgba(16, 69, 79, 0.6);
+}
+
+.susc-plan-desc {
+  color: rgba(16, 69, 79, 0.65);
+}
+
+.susc-plan-check {
+  color: #f5f7fa;
+  background: var(--color-primario, #10454F);
+}
+
+.susc-btn.is-inactive {
+  color: rgba(16, 69, 79, 0.75);
+}
+
+.susc-btn.is-active {
+  color: #12202a;
+}
+
+/* ============================================================
+   VISTA ROL — FONDO CLARO (override)
+   ============================================================ */
+
+.glass-rol-page {
+  background: linear-gradient(
+    135deg,
+    #F8D6D6 0%,
+    #EEDCE6 35%,
+    #D3E9F1 65%,
+    #A9EEFF 100%
+  );
+}
+
+.glass-rol-blob {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.glass-rol-close {
+  color: rgba(16, 69, 79, 0.75);
+}
+
+.glass-rol-close:hover {
+  background: rgba(16, 69, 79, 0.08);
+  border-color: rgba(16, 69, 79, 0.18);
+}
+
+.wm-inter,
+.wm-market {
+  color: var(--color-primario, #10454F);
+}
+
+.glass-rol-wordmark {
+  text-shadow: none;
+}
+
+.glass-rol-tagline {
+  color: rgba(16, 69, 79, 0.65);
+}
+
+.glass-rol-btn.is-inactive {
+  color: rgba(16, 69, 79, 0.75);
+}
+
+.glass-rol-btn.is-active {
+  color: #12202a;
+}
+
+.glass-rol-stats {
+  color: rgba(16, 69, 79, 0.55);
+}
+
+/* ============================================================
+  VISTA ROL — LOGO SIN ESLOGAN (LogoCom1.png) + ESLOGAN EN CÓDIGO
+   ============================================================ */
+
+.glass-rol-logo-completo {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  filter: drop-shadow(0 6px 18px rgba(16, 69, 79, 0.15));
+}
+
+.glass-rol-tagline-nueva {
+  margin: 0.15rem 0 0;
+  text-align: center;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.3px;
+  color: #155666;
+  transform: translateX(14px);
+}
+
+@media (min-width: 768px) {
+  .glass-rol-logo-completo {
+    max-width: 320px;
+  }
+
+  .glass-rol-tagline-nueva {
+    font-size: 1.02rem;
+    margin-top: 0.2rem;
+    transform: translateX(18px);
+  }
+}

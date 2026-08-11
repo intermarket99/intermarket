@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../database/supabaseconfig";
 import { Spinner } from "react-bootstrap";
-import logo from "../assets/icono_intermAeview.png";
+import logoCompleto from "../assets/LogoCom1.png";
 
 
 const VistaRol = () => {
@@ -84,15 +84,15 @@ const VistaRol = () => {
       </button>
 
       <div className="glass-rol-wrapper">
-        {/* Logo + wordmark + tagline: fuera del panel de vidrio,
-            flotando directamente sobre el fondo */}
+        {/* Logo (icono + wordmark, sin eslogan) + eslogan en código,
+            fuera del panel de vidrio, flotando directamente sobre el fondo */}
         <div className="glass-rol-hero">
-          <img src={logo} alt="InterMarket" className="glass-rol-logo" />
-          <h1 className="glass-rol-wordmark">
-            <span className="wm-inter">Inter</span>
-            <span className="wm-market">Market</span>
-          </h1>
-          <p className="glass-rol-tagline">Conecta, Intercambia, Crece</p>
+          <img
+            src={logoCompleto}
+            alt="InterMarket"
+            className="glass-rol-logo-completo"
+          />
+          <p className="glass-rol-tagline-nueva">Conecta, Intercambia, Crece</p>
         </div>
 
         {/* Panel de vidrio: solo contiene los botones, pegado abajo */}
