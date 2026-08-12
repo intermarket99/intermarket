@@ -13,7 +13,9 @@ import Paginacion from "../components/ordenamiento/Paginacion";
 import { useAuth } from '../context/AuthContext';
 
 const Productos = () => {
-    const { user, role } = useAuth();
+    // 👇 agregamos authLoading para poder esperar a que la sesión/rol
+    // terminen de resolverse antes de decidir qué productos cargar.
+    const { user, role, loading: authLoading } = useAuth();
     // --- ESTADOS DE DATOS ---
     const [productos, setProductos] = useState([]);
     const [categorias, setCategorias] = useState([]);
@@ -51,10 +53,10 @@ const Productos = () => {
     });
 
    // ================== CARGAR DATOS ==================
-const cargarProductos = async () => {
+const cargarProductos = async (estaCancelado = () => false) => {
     try {
         setCargando(true);
-        if (!user) return;
+        if (!user?.id) return;
 
         // Query base
         let query = supabase
@@ -62,10 +64,11 @@ const cargarProductos = async () => {
             .select(`*, categorias(nombre_categoria), tiendas(nombre_tienda)`)
             .order("creado_en", { ascending: false });
 
-        if (user.rol === 'admin' || role === 'admin') {
+        if (role === 'admin') {
             // ==================== ADMIN: Ve todos los productos ====================
             const { data, error } = await query;
             if (error) throw error;
+            if (estaCancelado()) return;
             setProductos(data || []);
             setIdTienda(null);
         } else {
@@ -76,17 +79,19 @@ const cargarProductos = async () => {
                 .eq('id_usuario', user.id)
                 .maybeSingle();
 
+            if (estaCancelado()) return;
+
             const id_tienda_vendedor = perfilData?.id_tienda;
             setIdTienda(id_tienda_vendedor);
 
             if (!id_tienda_vendedor) {
                 setProductos([]);
-                setCargando(false);
                 return;
             }
 
             const { data, error } = await query.eq("id_tienda", id_tienda_vendedor);
             if (error) throw error;
+            if (estaCancelado()) return;
             setProductos(data || []);
         }
     } catch (err) {
@@ -97,7 +102,9 @@ const cargarProductos = async () => {
             tipo: "error" 
         });
     } finally {
-        setCargando(false);
+        if (!estaCancelado()) {
+            setCargando(false);
+        }
     }
 };
 
@@ -728,10 +735,24 @@ const cargarProductos = async () => {
         }
     };
 
+    // 👇 antes: useEffect(() => { cargarProductos(); cargarCategorias(); }, []);
+    // Ahora esperamos a que termine de resolverse la sesión (authLoading)
+    // y volvemos a cargar si cambia el usuario o el rol, para no quedarnos
+    // "pegados" con un !user antiguo y necesitar recargar la página.
     useEffect(() => {
-        cargarProductos();
         cargarCategorias();
     }, []);
+
+    useEffect(() => {
+        if (authLoading) return;
+
+        let cancelado = false;
+        cargarProductos(() => cancelado);
+
+        return () => {
+            cancelado = true;
+        };
+    }, [authLoading, user?.id, role]);
 
     return (
         <Container>
@@ -740,14 +761,14 @@ const cargarProductos = async () => {
     <Col xs={9}>
         <h3>
             <i className="bi bi-box-seam me-2"></i>
-            {user?.rol === 'admin' || role === 'admin' 
+            {role === 'admin' 
                 ? 'Todos los Productos - Administrador' 
                 : 'Mis Productos'}
         </h3>
     </Col>
     
     {/* Solo mostrar botón Nuevo a vendedores */}
-    {(user?.rol === 'vendedor' || role === 'vendedor') && (
+    {role === 'vendedor' && (
         <Col xs={3} className="text-end">
             <Button onClick={() => setMostrarModalRegistro(true)} disabled={!idTienda}>
                 <i className="bi bi-plus-lg"></i> Nuevo

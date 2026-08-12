@@ -4,8 +4,90 @@ import { supabase } from '../../database/supabaseconfig';
 import { useAuth } from '../../context/AuthContext';
 import ModalTienda from './ModalTienda';
 
+// Ejecuta una consulta sin permitir que un fallo secundario bloquee todo el modal.
+// Cada consulta tiene su propio límite y devuelve un resultado seguro.
+const TIEMPO_LIMITE_MS = 6000;
+
+const consultaSegura = async (consulta, valorPorDefecto = null, ms = TIEMPO_LIMITE_MS) => {
+    let temporizador;
+
+    try {
+        const timeout = new Promise((resolve) => {
+            temporizador = setTimeout(() => {
+                resolve({
+                    data: valorPorDefecto,
+                    error: { message: 'tiempo_agotado' }
+                });
+            }, ms);
+        });
+
+        return await Promise.race([
+            Promise.resolve(consulta),
+            timeout
+        ]);
+    } catch (error) {
+        return {
+            data: valorPorDefecto,
+            error
+        };
+    } finally {
+        clearTimeout(temporizador);
+    }
+};
+
+// Caché corta para que al volver a abrir un producto ya consultado
+// sus datos complementarios aparezcan inmediatamente.
+const cacheDetalles = new Map();
+const DURACION_CACHE_MS = 2 * 60 * 1000;
+
+
+// ============================================================
+// DATOS DE RESPALDO QUE YA VIENEN DESDE EL CATÁLOGO
+// ============================================================
+// Catalogo.jsx ya trae la relación:
+// tiendas(nombre_tienda, perfiles(usuarios(username)))
+//
+// Por eso no necesitamos dejar vacía la sección de tienda mientras
+// esperamos una nueva petición a Supabase.
+const obtenerTiendaInicial = (producto) => {
+    if (!producto?.id_tienda) return null;
+
+    const tiendaRelacion = Array.isArray(producto?.tiendas)
+        ? producto.tiendas[0]
+        : producto?.tiendas;
+
+    return {
+        id_tienda: producto.id_tienda,
+        nombre_tienda:
+            tiendaRelacion?.nombre_tienda ||
+            producto?.nombre_tienda ||
+            'Tienda',
+        imagen_url:
+            tiendaRelacion?.imagen_url ||
+            null
+    };
+};
+
+const obtenerVendedorInicial = (producto) => {
+    const tiendaRelacion = Array.isArray(producto?.tiendas)
+        ? producto.tiendas[0]
+        : producto?.tiendas;
+
+    const perfiles = tiendaRelacion?.perfiles;
+
+    if (Array.isArray(perfiles)) {
+        return perfiles[0] || null;
+    }
+
+    return perfiles || null;
+};
+
 const ModalDetalleProducto = ({ mostrar, setMostrar, producto, agregarAlCarrito }) => {
     const { user } = useAuth();
+    // Referencia para descartar respuestas "obsoletas": si el usuario cierra el modal
+    // o cambia de producto antes de que terminen las consultas anteriores, esa carga
+    // vieja no debe pisar el estado del producto nuevo.
+    const idCargaActualRef = React.useRef(0);
     const [tienda, setTienda] = useState(null);
     const [vendedor, setVendedor] = useState(null);
     const [perfilUsuario, setPerfilUsuario] = useState(null);
@@ -15,6 +97,7 @@ const ModalDetalleProducto = ({ mostrar, setMostrar, producto, agregarAlCarrito 
     const [resenas, setResenas] = useState([]);
     const [calificacionesTienda, setCalificacionesTienda] = useState([]);
     const [cargando, setCargando] = useState(false);
+    const [errorCarga, setErrorCarga] = useState(false);
     const [comprado, setComprado] = useState(false);
 
     const [tallaSeleccionada, setTallaSeleccionada] = useState('');
@@ -25,82 +108,375 @@ const ModalDetalleProducto = ({ mostrar, setMostrar, producto, agregarAlCarrito 
     const [nuevaCalificacionTienda, setNuevaCalificacionTienda] = useState({ puntuacion: 5, comentario: '' });
 
     useEffect(() => {
-        if (mostrar && producto) {
-            setTallaSeleccionada('');
-            setColorSeleccionado('');
-            setProductoDetalle(producto);
-            cargarDetalles();
+        if (!mostrar || !producto?.id_producto) {
+            idCargaActualRef.current += 1;
+            return;
         }
-    }, [mostrar, producto]);
 
-    const cargarDetalles = async () => {
-        setCargando(true);
-        try {
-            // Recargar datos del producto para asegurar que tenemos las tallas y colores más recientes
-            const { data: prodData, error: prodError } = await supabase
-                .from('productos')
-                .select('*, categorias(nombre_categoria)')
-                .eq('id_producto', producto.id_producto)
-                .single();
-            
-            if (!prodError && prodData) {
-                setProductoDetalle(prodData);
-            }
+        setTallaSeleccionada('');
+        setColorSeleccionado('');
+        setProductoDetalle(producto);
+        setErrorCarga(false);
 
-            if (producto.id_tienda) {
-                const { data: tiendaData } = await supabase
-                    .from('tiendas')
-                    .select('*')
-                    .eq('id_tienda', producto.id_tienda)
-                    .single();
-                setTienda(tiendaData);
+        // Usamos inmediatamente los datos que YA vienen desde el catálogo.
+        // Así la sección "Vendido por" no desaparece si una petición se pausa
+        // al hacer Alt+Tab o cambiar de pestaña.
+        setTienda(obtenerTiendaInicial(producto));
+        setVendedor(obtenerVendedorInicial(producto));
+        setPerfilUsuario(null);
+        setEsMiProducto(false);
+        setResenas([]);
+        setCalificacionesTienda([]);
+        setComprado(false);
 
-                const { data: perfilData } = await supabase
-                    .from('perfiles')
-                    .select('*, usuarios(username)')
-                    .eq('id_tienda', producto.id_tienda)
-                    .single();
-                setVendedor(perfilData);
+        const cache = cacheDetalles.get(producto.id_producto);
 
-                const { data: califTienda } = await supabase
-                    .from('calificaciones_tiendas')
-                    .select('*, perfiles(usuarios(username))')
-                    .eq('tienda_id', producto.id_tienda)
-                    .order('creado_en', { ascending: false });
-                setCalificacionesTienda(califTienda || []);
-            }
-
-            const { data: resenasData } = await supabase
-                .from('reseñas_productos')
-                .select('*, perfiles(usuarios(username))')
-                .eq('producto_id', producto.id_producto)
-                .order('creado_en', { ascending: false });
-            setResenas(resenasData || []);
-
-            if (user) {
-                const { data: miPerfil } = await supabase
-                    .from('perfiles')
-                    .select('perfil_id, id_tienda')
-                    .eq('id_usuario', user.id)
-                    .single();
-                setPerfilUsuario(miPerfil);
-
-                setEsMiProducto(!!(miPerfil && miPerfil.id_tienda === producto.id_tienda));
-
-                if (miPerfil) {
-                    const { data: pedidos } = await supabase
-                        .from('pedidos')
-                        .select('id_pedido')
-                        .eq('perfil_id', miPerfil.perfil_id)
-                        .eq('id_producto', producto.id_producto)
-                        .gte('id_estado', 2);
-                    setComprado(pedidos && pedidos.length > 0);
-                }
-            }
-        } catch (error) {
-            console.error('Error al cargar detalles:', error);
-        } finally {
+        if (
+            cache &&
+            Date.now() - cache.guardadoEn < DURACION_CACHE_MS
+        ) {
+            setProductoDetalle(cache.productoDetalle || producto);
+            setTienda(cache.tienda || null);
+            setVendedor(cache.vendedor || null);
+            setResenas(cache.resenas || []);
+            setCalificacionesTienda(cache.calificacionesTienda || []);
             setCargando(false);
+        }
+
+        cargarDetalles(Boolean(cache));
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mostrar, producto?.id_producto, user?.id]);
+
+    // ============================================================
+    // RECUPERACIÓN AUTOMÁTICA AL VOLVER CON ALT+TAB
+    // ============================================================
+    //
+    // Supabase puede refrescar la sesión justo cuando la ventana recupera
+    // el foco. Si consultamos en ese mismo milisegundo, algunas peticiones
+    // pueden fallar o quedar pausadas. Esperamos un instante y reintentamos.
+    const ultimoReintentoRef = React.useRef(0);
+    const reintentoTimerRef = React.useRef(null);
+
+    useEffect(() => {
+        const programarReintento = () => {
+            if (
+                !mostrar ||
+                !producto?.id_producto ||
+                document.visibilityState !== 'visible'
+            ) {
+                return;
+            }
+
+            const ahora = Date.now();
+
+            if (ahora - ultimoReintentoRef.current < 800) {
+                return;
+            }
+
+            ultimoReintentoRef.current = ahora;
+
+            if (reintentoTimerRef.current) {
+                clearTimeout(reintentoTimerRef.current);
+            }
+
+            setErrorCarga(false);
+
+            // Damos tiempo a Supabase Auth para terminar TOKEN_REFRESHED /
+            // SIGNED_IN antes de pedir tienda, vendedor, reseñas, etc.
+            reintentoTimerRef.current = setTimeout(() => {
+                if (
+                    mostrar &&
+                    producto?.id_producto &&
+                    document.visibilityState === 'visible'
+                ) {
+                    cargarDetalles(true);
+                }
+            }, 700);
+        };
+
+        const alCambiarVisibilidad = () => {
+            if (document.visibilityState === 'hidden') {
+                // Una respuesta antigua no debe pisar el nuevo reintento.
+                idCargaActualRef.current += 1;
+                setCargando(false);
+
+                if (reintentoTimerRef.current) {
+                    clearTimeout(reintentoTimerRef.current);
+                }
+
+                return;
+            }
+
+            programarReintento();
+        };
+
+        document.addEventListener(
+            'visibilitychange',
+            alCambiarVisibilidad
+        );
+
+        window.addEventListener(
+            'focus',
+            programarReintento
+        );
+
+        return () => {
+            document.removeEventListener(
+                'visibilitychange',
+                alCambiarVisibilidad
+            );
+
+            window.removeEventListener(
+                'focus',
+                programarReintento
+            );
+
+            if (reintentoTimerRef.current) {
+                clearTimeout(reintentoTimerRef.current);
+            }
+        };
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        mostrar,
+        producto?.id_producto,
+        user?.id
+    ]);
+
+    const cargarDetalles = async (cargaEnSegundoPlano = false) => {
+        if (!producto?.id_producto) {
+            setCargando(false);
+            return;
+        }
+
+        idCargaActualRef.current += 1;
+        const idCarga = idCargaActualRef.current;
+
+        const esCargaVigente = () =>
+            idCargaActualRef.current === idCarga;
+
+        if (!cargaEnSegundoPlano) {
+            setCargando(true);
+        }
+
+        setErrorCarga(false);
+
+        try {
+            // El producto ya viene desde el catálogo y se muestra inmediatamente.
+            // Los datos secundarios se cargan de forma independiente para que
+            // una consulta con error/404 no bloquee a las demás.
+            const promesas = [
+                consultaSegura(
+                    supabase
+                        .from('productos')
+                        .select('*, categorias(nombre_categoria)')
+                        .eq('id_producto', producto.id_producto)
+                        .maybeSingle(),
+                    producto,
+                    6000
+                ),
+
+                producto.id_tienda
+                    ? consultaSegura(
+                        supabase
+                            .from('tiendas')
+                            .select('*')
+                            .eq('id_tienda', producto.id_tienda)
+                            .maybeSingle(),
+                        null,
+                        6000
+                    )
+                    : Promise.resolve({ data: null, error: null }),
+
+                consultaSegura(
+                    supabase
+                        .from('reseñas_productos')
+                        .select('*, perfiles(usuarios(username))')
+                        .eq('producto_id', producto.id_producto)
+                        .order('creado_en', { ascending: false }),
+                    [],
+                    6000
+                ),
+
+                user?.id
+                    ? consultaSegura(
+                        supabase
+                            .from('perfiles')
+                            .select('perfil_id, id_tienda')
+                            .eq('id_usuario', user.id)
+                            .maybeSingle(),
+                        null,
+                        6000
+                    )
+                    : Promise.resolve({ data: null, error: null }),
+
+                producto.id_tienda
+                    ? consultaSegura(
+                        supabase
+                            .from('perfiles')
+                            .select('*, usuarios(username)')
+                            .eq('id_tienda', producto.id_tienda)
+                            .maybeSingle(),
+                        null,
+                        6000
+                    )
+                    : Promise.resolve({ data: null, error: null }),
+
+                producto.id_tienda
+                    ? consultaSegura(
+                        supabase
+                            .from('calificaciones_tiendas')
+                            .select('*, perfiles(usuarios(username))')
+                            .eq('tienda_id', producto.id_tienda)
+                            .order('creado_en', { ascending: false }),
+                        [],
+                        6000
+                    )
+                    : Promise.resolve({ data: [], error: null })
+            ];
+
+            const [
+                productoResultado,
+                tiendaResultado,
+                resenasResultado,
+                miPerfilResultado,
+                vendedorResultado,
+                califTiendaResultado
+            ] = await Promise.all(promesas);
+
+            if (!esCargaVigente()) return;
+
+            const detalleFinal =
+                productoResultado?.data || producto;
+
+            // Si Supabase no respondió al volver de otra pestaña,
+            // conservamos la tienda/vendedor que ya venían en el producto
+            // desde Catalogo.jsx.
+            const tiendaFinal =
+                tiendaResultado?.data ||
+                obtenerTiendaInicial(producto) ||
+                null;
+
+            const vendedorFinal =
+                vendedorResultado?.data ||
+                obtenerVendedorInicial(producto) ||
+                null;
+
+            const resenasFinal =
+                Array.isArray(resenasResultado?.data)
+                    ? resenasResultado.data
+                    : [];
+
+            const calificacionesFinal =
+                Array.isArray(califTiendaResultado?.data)
+                    ? califTiendaResultado.data
+                    : [];
+
+            const miPerfil =
+                miPerfilResultado?.data || null;
+
+            setProductoDetalle(detalleFinal);
+            setTienda(tiendaFinal);
+            setVendedor(vendedorFinal);
+            setResenas(resenasFinal);
+            setCalificacionesTienda(calificacionesFinal);
+            setPerfilUsuario(miPerfil);
+
+            setEsMiProducto(
+                Boolean(
+                    miPerfil &&
+                    miPerfil.id_tienda === producto.id_tienda
+                )
+            );
+
+            // Revisamos primero si alguna consulta secundaria falló.
+            const erroresSecundarios = [
+                tiendaResultado?.error,
+                resenasResultado?.error,
+                vendedorResultado?.error,
+                califTiendaResultado?.error
+            ].filter(Boolean);
+
+            if (erroresSecundarios.length > 0) {
+                console.warn(
+                    'Datos secundarios no disponibles:',
+                    erroresSecundarios
+                );
+
+                // IMPORTANTE:
+                // No guardamos una respuesta incompleta en caché.
+                // Así, al volver con Alt+Tab o reabrir el producto,
+                // se intentará consultar nuevamente Supabase.
+                cacheDetalles.delete(producto.id_producto);
+            } else {
+                // Solo guardamos caché cuando los datos secundarios
+                // realmente llegaron correctamente.
+                cacheDetalles.set(producto.id_producto, {
+                    guardadoEn: Date.now(),
+                    productoDetalle: detalleFinal,
+                    tienda: tiendaFinal,
+                    vendedor: vendedorFinal,
+                    resenas: resenasFinal,
+                    calificacionesTienda: calificacionesFinal
+                });
+            }
+
+            // Solo consideramos error visible si ni siquiera fue posible
+            // obtener el producto principal y tampoco tenemos el del catálogo.
+            if (productoResultado?.error && !detalleFinal) {
+                setErrorCarga(true);
+            }
+
+            if (!miPerfil?.perfil_id) {
+                setComprado(false);
+                return;
+            }
+
+            const pedidosResultado = await consultaSegura(
+                supabase
+                    .from('pedidos')
+                    .select('id_pedido')
+                    .eq('perfil_id', miPerfil.perfil_id)
+                    .eq('id_producto', producto.id_producto)
+                    .gte('id_estado', 2)
+                    .limit(1),
+                [],
+                5000
+            );
+
+            if (!esCargaVigente()) return;
+
+            if (pedidosResultado?.error) {
+                console.warn(
+                    'No se pudo verificar la compra:',
+                    pedidosResultado.error
+                );
+                setComprado(false);
+                return;
+            }
+
+            const pedidos = pedidosResultado?.data || [];
+
+            setComprado(
+                Array.isArray(pedidos) &&
+                pedidos.length > 0
+            );
+
+        } catch (error) {
+            console.error(
+                'Error inesperado al cargar detalles:',
+                error
+            );
+
+            if (esCargaVigente()) {
+                // El producto básico sigue visible aunque fallen datos secundarios.
+                setErrorCarga(false);
+            }
+        } finally {
+            if (esCargaVigente()) {
+                setCargando(false);
+            }
         }
     };
 
@@ -223,12 +599,31 @@ const ModalDetalleProducto = ({ mostrar, setMostrar, producto, agregarAlCarrito 
                 </Modal.Header>
 
                 <Modal.Body>
-                    {cargando ? (
-                        <div className="text-center py-5">
-                            <Spinner animation="border" variant="primary" />
+                    {cargando && (
+                        <div className="d-flex align-items-center justify-content-center gap-2 text-muted small mb-3">
+                            <Spinner animation="border" variant="primary" size="sm" />
+                            <span>Actualizando información del producto...</span>
                         </div>
-                    ) : (
-                        <Row>
+                    )}
+
+                    {errorCarga && (
+                        <div className="alert alert-warning d-flex align-items-center justify-content-between gap-3 py-2">
+                            <span className="small">
+                                <i className="bi bi-wifi-off me-2"></i>
+                                Algunos datos adicionales no pudieron actualizarse.
+                            </span>
+                            <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => cargarDetalles(false)}
+                            >
+                                <i className="bi bi-arrow-clockwise me-1"></i>
+                                Reintentar
+                            </Button>
+                        </div>
+                    )}
+
+                    <Row>
                             {/* COLUMNA IZQUIERDA */}
                             <Col md={5}>
                                 {/* Imagen del producto */}
@@ -300,7 +695,7 @@ const ModalDetalleProducto = ({ mostrar, setMostrar, producto, agregarAlCarrito 
                                                         {tienda.nombre_tienda}
                                                         <i className="bi bi-chevron-right text-muted" style={{ fontSize: '0.75rem' }}></i>
                                                     </h6>
-                                                    <small className="text-muted">{vendedor?.usuarios?.username || 'Vendedor'}</small>
+                                                    <small className="text-muted">{vendedor?.usuarios?.username || vendedor?.username || 'Vendedor'}</small>
                                                 </div>
                                                 <span className="badge bg-primary bg-opacity-10 text-primary rounded-pill px-2" style={{ fontSize: '0.7rem' }}>
                                                     Ver tienda
@@ -550,8 +945,7 @@ const ModalDetalleProducto = ({ mostrar, setMostrar, producto, agregarAlCarrito 
                                     )}
                                 </div>
                             </Col>
-                        </Row>
-                    )}
+                    </Row>
                 </Modal.Body>
             </Modal>
 

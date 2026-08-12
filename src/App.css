@@ -4784,8 +4784,8 @@ body {
 }
 
 .liquid-navbar-logo {
-  width: 42px;
-  height: 42px;
+  width: auto;
+  height: 50px;
 
   object-fit: contain;
 

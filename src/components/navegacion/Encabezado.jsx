@@ -13,7 +13,7 @@ import {
   useNavigate
 } from "react-router-dom";
 
-import logo from "../../assets/icono_intermAeview.png";
+import logo from "../../assets/LogoCom.png";
 import { supabase } from "../../database/supabaseconfig";
 import { useAuth } from "../../context/AuthContext";
 import { obtenerMiPerfil } from "../../services/perfilService";
@@ -760,9 +760,7 @@ const Encabezado = () => {
               className="liquid-navbar-logo"
             />
 
-            <span className="liquid-navbar-brand">
-              InterMarket
-            </span>
+      
           </Navbar.Brand>
 
           {/* ACCIONES MÓVILES */}

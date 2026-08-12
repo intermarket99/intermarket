@@ -6,6 +6,7 @@ import React, {
 } from "react";
 
 import { supabase } from "../database/supabaseconfig";
+import { asegurarUsuario } from "../services/perfilService";
 
 const AuthContext = createContext(null);
 
@@ -95,13 +96,48 @@ export const AuthProvider = ({ children }) => {
 
       /*
        * Puede ocurrir que el usuario exista en auth.users,
-       * pero todavía no tenga registro en public.usuarios.
+       * pero todavía no tenga registro en public.usuarios
+       * (por ejemplo, cuentas antiguas afectadas por un reset
+       * de la base de datos, o registros que se interrumpieron
+       * a medias). En ese caso, en vez de solo simular un rol
+       * temporal en localStorage, creamos la fila real ahora
+       * mismo para que el resto de la app (suscripción, pagos,
+       * etc.) funcione sin errores de foreign key.
        */
       if (!userData) {
         console.warn(
-          "El usuario aún no existe en public.usuarios."
+          "El usuario aún no existe en public.usuarios. Creándolo ahora..."
         );
 
+        try {
+          const {
+            data: { user: usuarioAuth }
+          } = await supabase.auth.getUser();
+
+          if (usuarioAuth) {
+            await asegurarUsuario(
+              usuarioAuth,
+              usuarioAuth.email
+            );
+
+            console.log(
+              "✓ Fila creada en usuarios, reintentando obtener rol..."
+            );
+
+            // Reintenta ahora que la fila ya existe.
+            return await fetchUserRole(
+              userId,
+              forceLoading
+            );
+          }
+        } catch (creacionError) {
+          console.error(
+            "❌ No se pudo crear el usuario en public.usuarios:",
+            creacionError
+          );
+        }
+
+        // Fallback si no se pudo crear la fila (ej. sin conexión).
         const rolTemporal =
           rolEnCache || "comprador";
 
@@ -128,33 +164,29 @@ export const AuthProvider = ({ children }) => {
       const dbRole =
         userData.rol || "comprador";
 
-      let rolFinal =
-        rolEnCache || dbRole;
-
       /*
        * Reglas:
        *
-       * 1. Si la base dice comprador,
-       *    no puede mantenerse como vendedor.
+       * 1. Si la base dice comprador (nunca se suscribió,
+       *    o perdió la suscripción), no puede mantenerse
+       *    como vendedor sin importar el caché.
        *
-       * 2. Si la base ya dice vendedor,
-       *    pero el caché todavía dice comprador,
-       *    significa que acaba de suscribirse.
+       * 2. Si la base dice vendedor, respetamos el rol
+       *    que la persona eligió manualmente (el caché),
+       *    ya sea "vendedor" o "comprador" (viendo el
+       *    catálogo como comprador). El caché ya se
+       *    actualiza al instante al suscribirse
+       *    (ver convertirEnVendedor en Suscripcion.jsx),
+       *    así que no hace falta forzar nada aquí.
        *
        * 3. El administrador siempre conserva admin.
        */
 
+      let rolFinal =
+        rolEnCache || dbRole;
+
       if (dbRole === "comprador") {
         rolFinal = "comprador";
-      }
-
-      if (dbRole === "vendedor") {
-        if (
-          !rolEnCache ||
-          rolEnCache === "comprador"
-        ) {
-          rolFinal = "vendedor";
-        }
       }
 
       if (dbRole === "admin") {
