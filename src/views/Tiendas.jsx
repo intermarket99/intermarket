@@ -20,14 +20,13 @@ const Tiendas = () => {
   const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
 
   const [nuevaTienda, setNuevaTienda] = useState({
-  nombre_tienda: "",
-  imagen_url: "",
-  direccion: "",
-  latitud: null,
-  longitud: null,
-});
+    nombre_tienda: "",
+    imagen_url: "",
+    direccion: "",
+    latitud: null,
+    longitud: null,
+  });
 
-  // Nombre del usuario para el saludo
   const nombreUsuario =
     user?.user_metadata?.full_name ||
     user?.email?.split("@")[0] ||
@@ -52,29 +51,16 @@ const Tiendas = () => {
     }
   };
 
+  // Cargar TODAS las tiendas del usuario
   const cargarTiendas = async () => {
     try {
       setCargando(true);
       if (!user) return;
 
-      // Obtener el id_tienda del perfil
-      const { data: perfilData } = await supabase
-        .from("perfiles")
-        .select("id_tienda")
-        .eq("id_usuario", user.id)
-        .maybeSingle();
-
-      if (!perfilData || !perfilData.id_tienda) {
-        setTiendas([]);
-        setCargando(false);
-        return;
-      }
-
-      // Cargar la tienda vinculada
       const { data, error } = await supabase
         .from("tiendas")
         .select("*")
-        .eq("id_tienda", perfilData.id_tienda)
+        .eq("id_usuario", user.id)
         .order("creado_en", { ascending: false });
 
       if (error) throw error;
@@ -114,20 +100,18 @@ const Tiendas = () => {
   };
 
   const manejoCambioUbicacion = (ubicacion) => {
-  setNuevaTienda((prev) => ({
-    ...prev,
-    ...ubicacion,
-  }));
-};
+    setNuevaTienda((prev) => ({
+      ...prev,
+      ...ubicacion,
+    }));
+  };
 
-const manejoCambioUbicacionEdicion = (
-  ubicacion
-) => {
-  setTiendaEditar((prev) => ({
-    ...prev,
-    ...ubicacion,
-  }));
-};
+  const manejoCambioUbicacionEdicion = (ubicacion) => {
+    setTiendaEditar((prev) => ({
+      ...prev,
+      ...ubicacion,
+    }));
+  };
 
   const abrirModalEdicion = (tienda) => {
     setTiendaEditar(tienda);
@@ -158,21 +142,13 @@ const manejoCambioUbicacionEdicion = (
       }
 
       const payload = {
-      nombre_tienda:
-        nuevaTienda.nombre_tienda.trim(),
-
-      imagen_url: urlPublica,
-
-      direccion:
-        nuevaTienda.direccion?.trim() ||
-        null,
-
-      latitud:
-        nuevaTienda.latitud ?? null,
-
-      longitud:
-        nuevaTienda.longitud ?? null,
-    };
+        nombre_tienda: nuevaTienda.nombre_tienda.trim(),
+        imagen_url: urlPublica,
+        direccion: nuevaTienda.direccion?.trim() || null,
+        latitud: nuevaTienda.latitud ?? null,
+        longitud: nuevaTienda.longitud ?? null,
+        id_usuario: user.id, // dueño de la tienda
+      };
 
       const { data, error } = await supabase
         .from("tiendas")
@@ -182,10 +158,19 @@ const manejoCambioUbicacionEdicion = (
       if (error) throw error;
 
       if (user) {
-        await supabase
+        // Solo vincular al perfil si aún no tiene tienda principal
+        const { data: perfilData } = await supabase
           .from("perfiles")
-          .update({ id_tienda: data.id_tienda })
-          .eq("id_usuario", user.id);
+          .select("id_tienda")
+          .eq("id_usuario", user.id)
+          .maybeSingle();
+
+        if (!perfilData?.id_tienda) {
+          await supabase
+            .from("perfiles")
+            .update({ id_tienda: data.id_tienda })
+            .eq("id_usuario", user.id);
+        }
 
         await supabase
           .from("usuarios")
@@ -236,20 +221,11 @@ const manejoCambioUbicacionEdicion = (
       }
 
       const payload = {
-        nombre_tienda:
-          tiendaEditar.nombre_tienda.trim(),
-
+        nombre_tienda: tiendaEditar.nombre_tienda.trim(),
         imagen_url: urlPublica,
-
-        direccion:
-          tiendaEditar.direccion?.trim() ||
-          null,
-
-        latitud:
-          tiendaEditar.latitud ?? null,
-
-        longitud:
-          tiendaEditar.longitud ?? null,
+        direccion: tiendaEditar.direccion?.trim() || null,
+        latitud: tiendaEditar.latitud ?? null,
+        longitud: tiendaEditar.longitud ?? null,
       };
 
       const { error } = await supabase
@@ -282,12 +258,27 @@ const manejoCambioUbicacionEdicion = (
         .eq("id_tienda", tiendaAEliminar.id_tienda);
       if (error) throw error;
 
-      // Desvincular del perfil
+      // Si era la tienda principal del perfil, apuntar a otra o dejar null
       if (user) {
-        await supabase
+        const { data: perfilData } = await supabase
           .from("perfiles")
-          .update({ id_tienda: null })
-          .eq("id_usuario", user.id);
+          .select("id_tienda")
+          .eq("id_usuario", user.id)
+          .maybeSingle();
+
+        if (perfilData?.id_tienda === tiendaAEliminar.id_tienda) {
+          const { data: otras } = await supabase
+            .from("tiendas")
+            .select("id_tienda")
+            .eq("id_usuario", user.id)
+            .neq("id_tienda", tiendaAEliminar.id_tienda)
+            .limit(1);
+
+          await supabase
+            .from("perfiles")
+            .update({ id_tienda: otras?.[0]?.id_tienda ?? null })
+            .eq("id_usuario", user.id);
+        }
       }
 
       await cargarTiendas();
@@ -312,7 +303,7 @@ const manejoCambioUbicacionEdicion = (
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       }}
     >
-      {/* ========== HEADER ========== */}
+      {/* HEADER */}
       <div className="px-4 pt-4 pb-2">
         <h1
           style={{
@@ -335,7 +326,6 @@ const manejoCambioUbicacionEdicion = (
           Tu tienda registrada en un solo lugar
         </p>
 
-        {/* Badge cantidad */}
         <div
           style={{
             display: "inline-flex",
@@ -352,7 +342,7 @@ const manejoCambioUbicacionEdicion = (
         </div>
       </div>
 
-      {/* ========== CONTENIDO ========== */}
+      {/* CONTENIDO */}
       <div className="px-4 mt-3">
         {toast.mostrar && (
           <Alert
@@ -426,7 +416,6 @@ const manejoCambioUbicacionEdicion = (
                   boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
                 }}
               >
-                {/* Ilustración / imagen */}
                 <div
                   style={{
                     width: 64,
@@ -451,12 +440,10 @@ const manejoCambioUbicacionEdicion = (
                       }}
                     />
                   ) : (
-                    // Ilustración simple tipo tienda
                     <div style={{ fontSize: "2rem" }}>🏪</div>
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-grow-1" style={{ minWidth: 0 }}>
                   <div
                     style={{
@@ -493,7 +480,6 @@ const manejoCambioUbicacionEdicion = (
                   </div>
                 </div>
 
-                {/* Acciones */}
                 <div className="d-flex align-items-center gap-2">
                   <button
                     className="btn p-0 border-0 bg-transparent"
@@ -522,7 +508,7 @@ const manejoCambioUbicacionEdicion = (
         )}
       </div>
 
-      {/* ========== BOTÓN FLOTANTE + ========== */}
+      {/* BOTÓN FLOTANTE + */}
       <button
         onClick={() => setMostrarModalRegistro(true)}
         style={{
@@ -545,39 +531,25 @@ const manejoCambioUbicacionEdicion = (
         <i className="bi bi-plus-lg" style={{ fontSize: "1.5rem", color: "#0d5c63" }} />
       </button>
 
-      {/* ========== MODALES (tus componentes originales) ========== */}
+      {/* MODALES */}
       <ModalRegistroTienda
         mostrarModal={mostrarModalRegistro}
         setMostrarModal={setMostrarModalRegistro}
         nuevaTienda={nuevaTienda}
         manejoCambioInput={manejoCambioInput}
         manejoCambioArchivo={manejoCambioArchivo}
-        manejoCambioUbicacion={
-          manejoCambioUbicacion
-        }
+        manejoCambioUbicacion={manejoCambioUbicacion}
         agregarTienda={agregarTienda}
       />
 
-    <ModalEdicionTienda
-        mostrarModalEdicion={
-          mostrarModalEdicion
-        }
-        setMostrarModalEdicion={
-          setMostrarModalEdicion
-        }
+      <ModalEdicionTienda
+        mostrarModalEdicion={mostrarModalEdicion}
+        setMostrarModalEdicion={setMostrarModalEdicion}
         tiendaEditar={tiendaEditar}
-        manejoCambioInputEdicion={
-          manejoCambioInputEdicion
-        }
-        manejoCambioArchivoActualizar={
-          manejoCambioArchivoActualizar
-        }
-        manejoCambioUbicacionEdicion={
-          manejoCambioUbicacionEdicion
-        }
-        actualizarTienda={
-          actualizarTienda
-        }
+        manejoCambioInputEdicion={manejoCambioInputEdicion}
+        manejoCambioArchivoActualizar={manejoCambioArchivoActualizar}
+        manejoCambioUbicacionEdicion={manejoCambioUbicacionEdicion}
+        actualizarTienda={actualizarTienda}
       />
 
       <ModalEliminacionTienda
