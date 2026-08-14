@@ -1,5 +1,13 @@
 import React from "react";
 
+const formatearPrecio = (valor) => {
+  const n = Number(valor) || 0;
+  return `C$${n.toLocaleString("es-NI", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
 const TarjetasProductos = ({
   productos,
   abrirModalEdicion,
@@ -27,6 +35,7 @@ const TarjetasProductos = ({
       {productos.map((producto) => {
         const imagen = getImagen(producto);
         const subtitulo =
+          producto.tiendas?.nombre_tienda ||
           producto.descripcion?.trim() ||
           producto.categorias?.nombre_categoria ||
           "Sin descripción";
@@ -44,7 +53,6 @@ const TarjetasProductos = ({
               boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
             }}
           >
-            {/* Imagen */}
             <div
               style={{
                 width: 56,
@@ -72,7 +80,6 @@ const TarjetasProductos = ({
               )}
             </div>
 
-            {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
@@ -98,9 +105,18 @@ const TarjetasProductos = ({
               >
                 {subtitulo.length > 40 ? `${subtitulo.substring(0, 40)}...` : subtitulo}
               </div>
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: "#0d5c63",
+                  marginTop: 2,
+                }}
+              >
+                {formatearPrecio(producto.precio_venta)}
+              </div>
             </div>
 
-            {/* Acciones */}
             <div className="d-flex align-items-center gap-2" style={{ flexShrink: 0 }}>
               <button
                 type="button"
@@ -124,7 +140,10 @@ const TarjetasProductos = ({
                 onClick={() => abrirModalEdicion(producto)}
                 title="Editar"
               >
-                <i className="bi bi-pencil-square" style={{ fontSize: "1.1rem", color: "#0d5c63" }} />
+                <i
+                  className="bi bi-pencil-square"
+                  style={{ fontSize: "1.1rem", color: "#0d5c63" }}
+                />
               </button>
             </div>
           </div>
