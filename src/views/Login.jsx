@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Card, Row, Col } from 'react-bootstrap';
 import FormularioLogin from '../components/login/FormularioLogin';
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
-import logo from "../assets/icono_intermAeview.png";
+import logoCompleto from "../assets/LogoCom1.png";
 import "../App.css";
 
 function Login() {
@@ -19,26 +18,18 @@ function Login() {
     try {
       setCargando(true);
       setError(null);
-      console.log("🔍 Intentando login con:", usuario);
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: usuario,
         password: contraseña,
       });
 
-      console.log("📤 Respuesta Supabase:", { data, authError });
-      
       if (authError) {
-        console.error("❌ Error en Supabase:", authError);
         setError("Credenciales incorrectas. Verifica tus datos.");
         return;
       }
-      
-      console.log("✅ Login exitoso!");
-      // Tras el login exitoso, no navegamos inmediatamente.
-      // El useEffect de abajo detectará el cambio de 'user' y esperará al 'role'.
+
       localStorage.removeItem("rol-activo");
     } catch (err) {
-      console.error("💥 Error capturado:", err);
       setError("Error de conexión con el servidor.");
     } finally {
       setCargando(false);
@@ -52,9 +43,7 @@ function Login() {
       localStorage.removeItem("rol-activo");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: window.location.origin
-        }
+        options: { redirectTo: window.location.origin }
       });
       if (error) throw error;
     } catch (err) {
@@ -63,53 +52,90 @@ function Login() {
     }
   };
 
+  const iniciarSesionConApple = async () => {
+    try {
+      setCargando(true);
+      setError(null);
+      localStorage.removeItem("rol-activo");
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: window.location.origin }
+      });
+      if (error) throw error;
+    } catch (err) {
+      setError("Error de conexión con Apple.");
+      setCargando(false);
+    }
+  };
+
   useEffect(() => { 
-    console.log("📡 useEffect Login - user:", !!user, "loading:", loading, "role:", role);
     if (user && !loading) {
-      console.log("🎯 Redirigiendo - user:", user.email, "role:", role);
       if (role === 'admin') {
         navegar("/admin-inicio", { replace: true });
       } else {
-        // Todos los demás usuarios pasan por la selección de rol
         navegar("/seleccion-rol", { replace: true });
       }
     }
   }, [user, loading, role, navegar]);
 
-  return (
-    <div className="login-page-bg">
-      <Container>
-        <Row className="justify-content-center align-items-center">
-          <Col xs={12} sm={10} md={8} lg={6} xl={4}>
-            <Card className="login-card-unique border-0">
-              <Card.Body className="p-4 p-md-4"> {/* Reducido de p-5 a p-4 */}
-                <div className="text-center mb-3"> {/* Reducido mb-4 a mb-3 */}
-                  <img src={logo} alt="InterMarket" className="img-figma-style mb-3" />
-                  <h1 className="login-header-title">InterMarket</h1>
-                  <p className="text-muted small mb-0">Gestión de Inventario y Ventas</p>
-                </div>
-                
-                <FormularioLogin
-                  usuario={usuario}
-                  contraseña={contraseña}
-                  error={error}
-                  setUsuario={setUsuario}
-                  setContraseña={setContraseña}
-                  iniciarSesion={iniciarSesion}
-                  iniciarSesionConGoogle={iniciarSesionConGoogle}
-                  cargando={cargando}
-                />
+  const MobileNavbar = () => (
+    <div className="auth-mobile-navbar">
+      <div className="navbar-content">
+        <img src={logoCompleto} alt="InterMarket" className="navbar-logo" />
+        <span className="navbar-tagline">CONECTA, INTERCAMBIA, CRECE</span>
+      </div>
+    </div>
+  );
 
-                <div className="text-center mt-3"> {/* Reducido mt-4 a mt-3 */}
-                  <small className="text-muted">
-                    ¿No tienes una cuenta? <span className="text-primary fw-bold" style={{cursor: 'pointer'}} onClick={() => navegar("/registro")}>Regístrate aquí</span>
-                  </small>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
+  return (
+    <div className="auth-page">
+      <div className="auth-shell">
+        <MobileNavbar />
+
+        <header className="auth-hero">
+          <div className="auth-hero-blob blob-a" aria-hidden="true"></div>
+          <div className="auth-hero-blob blob-b" aria-hidden="true"></div>
+          <div className="auth-hero-brand">
+            <img src={logoCompleto} alt="InterMarket" className="auth-hero-logo" />
+            <p className="auth-hero-tagline">Conecta, Intercambia, Crece</p>
+          </div>
+          <svg className="auth-hero-wave auth-hero-wave-vertical" viewBox="0 0 60 400" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M30,0 C60,120 0,280 22.5,400 L60,400 L60,0 Z" fill="#ffffff" />
+          </svg>
+        </header>
+
+        <main className="auth-sheet">
+          <div className="auth-sheet-inner">
+            <div className="auth-card">
+              <h1 className="auth-card-title">Iniciar Sesión</h1>
+              <p className="auth-card-subtitle">
+                Ingresa tus datos para continuar en InterMarket.
+              </p>
+
+              <FormularioLogin
+                usuario={usuario}
+                contraseña={contraseña}
+                error={error}
+                setUsuario={setUsuario}
+                setContraseña={setContraseña}
+                iniciarSesion={iniciarSesion}
+                iniciarSesionConGoogle={iniciarSesionConGoogle}
+                iniciarSesionConApple={iniciarSesionConApple}
+                cargando={cargando}
+              />
+
+              <div className="auth-sheet-footer">
+                <small>
+                  ¿No tienes cuenta?{" "}
+                  <span className="auth-sheet-link" onClick={() => navegar("/registro")}>
+                    Regístrate gratis
+                  </span>
+                </small>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

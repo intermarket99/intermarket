@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
 import { Form, Button, Alert, InputGroup } from 'react-bootstrap';
 
-const FormularioLogin = ({ usuario, contraseña, error, setUsuario, setContraseña, iniciarSesion, iniciarSesionConGoogle, cargando }) => {
+const FormularioLogin = ({ 
+  usuario, 
+  contraseña, 
+  error, 
+  setUsuario, 
+  setContraseña, 
+  iniciarSesion, 
+  iniciarSesionConGoogle,
+  iniciarSesionConApple,
+  cargando 
+}) => {
   const [mostrarContraseña, setMostrarContraseña] = useState(false);
 
   return (
-    <Form onSubmit={(e) => { e.preventDefault(); iniciarSesion(); }} className="mt-2">
+    <Form onSubmit={(e) => { e.preventDefault(); iniciarSesion(); }}>
       {error && <Alert variant="danger" className="border-0 rounded-4 text-center small py-2 mb-3 shadow-sm">{error}</Alert>}
       
       <Form.Group className="mb-3">
         <InputGroup className="unique-input-group">
           <InputGroup.Text>
-            <i className="bi bi-person-circle"></i>
+            <i className="bi bi-envelope"></i>
           </InputGroup.Text>
           <Form.Control
-            type="text"
-            placeholder="Correo electrónico"
+            type="email"
+            placeholder="Email"
             value={usuario}
             onChange={(e) => setUsuario(e.target.value)}
             required
@@ -23,10 +33,10 @@ const FormularioLogin = ({ usuario, contraseña, error, setUsuario, setContrase�
         </InputGroup>
       </Form.Group>
 
-      <Form.Group className="mb-4">
+      <Form.Group className="mb-3">
         <InputGroup className="unique-input-group">
           <InputGroup.Text>
-            <i className="bi bi-shield-lock-fill"></i>
+            <i className="bi bi-lock"></i>
           </InputGroup.Text>
           <Form.Control
             type={mostrarContraseña ? 'text' : 'password'}
@@ -36,13 +46,21 @@ const FormularioLogin = ({ usuario, contraseña, error, setUsuario, setContrase�
             required
           />
           <InputGroup.Text 
-            onClick={() => setMostrarContraseña(!mostrarContraseña)} 
-            className="cursor-pointer"
+            onClick={() => setMostrarContraseña(!mostrarContraseña)}
           >
             <i className={`bi ${mostrarContraseña ? 'bi-eye-slash' : 'bi-eye'}`}></i>
           </InputGroup.Text>
         </InputGroup>
       </Form.Group>
+
+      <div className="auth-remember-row">
+        <label className="auth-remember-check">
+          <input type="checkbox" /> Recordarme
+        </label>
+        <a href="#" className="auth-forgot-link" onClick={(e) => e.preventDefault()}>
+          ¿Olvidaste tu contraseña?
+        </a>
+      </div>
 
       <Button type="submit" className="unique-login-btn w-100 shadow mb-3" disabled={cargando}>
         {cargando ? (
@@ -50,23 +68,31 @@ const FormularioLogin = ({ usuario, contraseña, error, setUsuario, setContrase�
         ) : 'Iniciar Sesión'}
       </Button>
 
-      <div className="d-flex align-items-center mb-3">
-        <hr className="flex-grow-1 text-muted" />
-        <span className="px-3 text-muted small">o</span>
-        <hr className="flex-grow-1 text-muted" />
+      <div className="auth-divider">
+        <hr />
+        <span>Or</span>
+        <hr />
       </div>
 
       <Button 
         type="button" 
-        variant="outline-dark" 
-        className="w-100 shadow-sm d-flex justify-content-center align-items-center mb-2" 
+        className="auth-oauth-btn w-100 shadow-sm d-flex justify-content-center align-items-center mb-2" 
         onClick={iniciarSesionConGoogle}
         disabled={cargando}
       >
         <i className="bi bi-google me-2 text-danger"></i> Continuar con Google
       </Button>
+
+      <Button 
+        type="button" 
+        className="auth-oauth-btn w-100 shadow-sm d-flex justify-content-center align-items-center" 
+        onClick={iniciarSesionConApple}
+        disabled={cargando}
+      >
+        <i className="bi bi-apple me-2"></i> Continuar con Apple
+      </Button>
     </Form>
   );
 };
 
-export default FormularioLogin;
+export default FormularioLogin; 
