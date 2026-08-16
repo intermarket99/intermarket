@@ -1,18 +1,88 @@
 import React, { useState } from 'react';
-import { Modal, Button, Row, Col, Spinner, Form } from 'react-bootstrap';
+import { Modal, Spinner, Form } from 'react-bootstrap';
 import { supabase } from '../../database/supabaseconfig';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { enviarNotificacionPorCorreo } from '../../services/emailService';
 
+
+
+const limpiarNumeroTarjeta = (valor) => {
+    return valor.replace(/\D/g, "").slice(0, 16);
+};
+
+const formatearNumeroTarjeta = (valor) => {
+    return limpiarNumeroTarjeta(valor)
+        .replace(/(\d{4})(?=\d)/g, "$1 ")
+        .trim();
+};
+
+const formatearVencimiento = (valor) => {
+    const limpio = valor.replace(/\D/g, "").slice(0, 4);
+
+    if (limpio.length <= 2) {
+        return limpio;
+    }
+
+    return `${limpio.slice(0, 2)}/${limpio.slice(2)}`;
+};
+
+const detectarTipoTarjeta = (numero) => {
+    const limpio = limpiarNumeroTarjeta(numero);
+
+    if (/^4/.test(limpio)) {
+        return "visa";
+    }
+
+    if (/^(5[1-5]|2[2-7])/.test(limpio)) {
+        return "mastercard";
+    }
+
+    return "tarjeta";
+};
+
+const validarLuhn = (numero) => {
+    const limpio = limpiarNumeroTarjeta(numero);
+
+    if (limpio.length < 13) {
+        return false;
+    }
+
+    let suma = 0;
+    let duplicar = false;
+
+    for (let indice = limpio.length - 1; indice >= 0; indice -= 1) {
+        let digito = Number(limpio[indice]);
+
+        if (duplicar) {
+            digito *= 2;
+
+            if (digito > 9) {
+                digito -= 9;
+            }
+        }
+
+        suma += digito;
+        duplicar = !duplicar;
+    }
+
+    return suma % 10 === 0;
+};
 
 const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompraExitosa }) => {
-    const { user, session } = useAuth();
+    const { user } = useAuth();
     const navegar = useNavigate();
     const [procesando, setProcesando] = useState(false);
     const [direcciones, setDirecciones] = useState([]);
     const [idDireccionSel, setIdDireccionSel] = useState("");
     const [cargandoDirecciones, setCargandoDirecciones] = useState(false);
+    const [mostrarPago, setMostrarPago] = useState(false);
+    const [numeroTarjeta, setNumeroTarjeta] = useState("");
+    const [titular, setTitular] = useState("");
+    const [vencimiento, setVencimiento] = useState("");
+    const [cvv, setCvv] = useState("");
+    const [errorPago, setErrorPago] = useState("");
+    const [tarjetaGirando, setTarjetaGirando] = useState(false);
+
 
     React.useEffect(() => {
         if (mostrar && user) {
@@ -127,19 +197,75 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
         return true;
     };
 
-    /*
-     * "Confirmar compra" ahora registra la venta directamente
-     * (a través de la función simular-pago, que inserta en
-     * ventas/pedidos en tu base de datos) en vez de redirigir a
-     * Stripe. Al terminar, limpia el carrito y abre el modal de
-     * post-compra con los productos comprados.
-     *
-     * Nota: la función realizarCompra() (flujo con Stripe) se deja
-     * abajo sin usar por si en el futuro quieres reactivar el pago
-     * real; el botón del formulario ya no la llama.
-     */
-    const simularCompra = async () => {
-        if (!user) {
+    const limpiarFormularioPago = () => {
+        setNumeroTarjeta("");
+        setTitular("");
+        setVencimiento("");
+        setCvv("");
+        setErrorPago("");
+        setTarjetaGirando(false);
+    };
+
+    const validarFormularioPago = () => {
+        const numeroLimpio = limpiarNumeroTarjeta(numeroTarjeta);
+
+        if (!validarLuhn(numeroLimpio)) {
+            throw new Error(
+                "El número de tarjeta no es válido. Para pruebas usa 4242 4242 4242 4242."
+            );
+        }
+
+        if (titular.trim().length < 3) {
+            throw new Error("Escribe el nombre del titular.");
+        }
+
+        if (!/^\d{2}\/\d{2}$/.test(vencimiento)) {
+            throw new Error("El vencimiento debe tener el formato MM/AA.");
+        }
+
+        const [mesTexto, anioTexto] = vencimiento.split("/");
+        const mes = Number(mesTexto);
+        const anio = Number(`20${anioTexto}`);
+
+        if (mes < 1 || mes > 12) {
+            throw new Error("El mes de vencimiento no es válido.");
+        }
+
+        const ahora = new Date();
+        const finDelMes = new Date(anio, mes, 0, 23, 59, 59);
+
+        if (finDelMes < ahora) {
+            throw new Error("La tarjeta se encuentra vencida.");
+        }
+
+        if (!/^\d{3,4}$/.test(cvv)) {
+            throw new Error("El CVV debe contener 3 o 4 números.");
+        }
+    };
+
+    const registrarMetodoPago = async () => {
+        const ultimosCuatro = limpiarNumeroTarjeta(numeroTarjeta).slice(-4);
+        const tipoMetodo = detectarTipoTarjeta(numeroTarjeta);
+
+        const { error: metodoError } = await supabase
+            .from("metodos_pago")
+            .insert({
+                id_usuario: user.id,
+                id_stripe_customer: null,
+                id_stripe_payment_method: null,
+                ultimo4: ultimosCuatro,
+                tipo_metodo: tipoMetodo
+            });
+
+        if (metodoError) {
+            throw new Error(
+                `No se pudo registrar el método de pago: ${metodoError.message}`
+            );
+        }
+    };
+
+    const abrirPago = () => {
+        if (!user?.id) {
             alert("Debes iniciar sesión para realizar una compra.");
             return;
         }
@@ -151,59 +277,64 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
             return;
         }
 
+        if (!Array.isArray(carrito) || carrito.length === 0) {
+            alert("El carrito está vacío.");
+            return;
+        }
+
+        setErrorPago("");
+        setMostrarPago(true);
+    };
+
+    const procesarPagoConTarjeta = async (evento) => {
+        evento.preventDefault();
+
         try {
             setProcesando(true);
+            setErrorPago("");
 
-            // Se captura ANTES de limpiar el carrito, para poder
-            // mostrarlos en el modal de post-compra.
-            const itemsComprados = [...carrito];
+            validarFormularioPago();
 
-            const idOperacion = Date.now().toString(); // ID único para esta operación
-            const response = await fetch('/.netlify/functions/simular-pago', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: session?.access_token ? `Bearer ${session.access_token}` : '',
-                },
-                body: JSON.stringify({ 
-                    carrito, 
-                    total, 
-                    id_operacion: idOperacion,
-                    id_direccion: idDireccionSel
-                }),
-            });
+            // Simulación breve de autorización de tarjeta.
+            await new Promise((resolve) => setTimeout(resolve, 900));
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Error al procesar la compra');
-            }
+            await registrarMetodoPago();
 
-            const data = await response.json();
-            if (data.success) {
-                setCarrito([]);
-                setMostrar(false);
+            // Cierra la pasarela y ejecuta la compra real en Supabase.
+            setMostrarPago(false);
+            await simularCompra();
 
-                if (typeof onCompraExitosa === 'function') {
-                    onCompraExitosa(itemsComprados);
-                }
-            }
+            limpiarFormularioPago();
         } catch (err) {
-            console.error("Error al procesar la compra:", err);
-            alert("Ocurrió un error al procesar tu compra: " + err.message);
+            console.error("Error procesando el pago con tarjeta:", err);
+            setErrorPago(
+                err?.message || "No se pudo procesar el pago con tarjeta."
+            );
         } finally {
             setProcesando(false);
         }
     };
 
     /*
-     * Flujo original con Stripe Checkout. Ya no está conectado al
-     * botón "Confirmar compra" (ver simularCompra arriba), pero se
-     * deja aquí por si más adelante quieres volver a habilitar el
-     * pago real con tarjeta.
+     * "Confirmar compra" registra la compra directamente en Supabase.
+     *
+     * Flujo:
+     * 1. Valida sesión, variantes, dirección y carrito.
+     * 2. Obtiene el perfil del comprador.
+     * 3. Consulta los productos reales para validar stock y obtener tienda/precio.
+     * 4. Crea la venta.
+     * 5. Crea los pedidos asociados a esa venta.
+     * 6. Descuenta el stock.
+     * 7. Limpia el carrito y abre el flujo de post-compra.
+     *
+     * Nota:
+     * El campo id_stripe_intent sigue siendo NOT NULL y UNIQUE en la base,
+     * por eso se genera un identificador local SIM-... mientras el proyecto
+     * trabaja con pago simulado.
      */
-    const realizarCompra = async () => {
-        if (!user) {
-            alert("Debes iniciar sesión como comprador para realizar una compra.");
+    const simularCompra = async () => {
+        if (!user?.id) {
+            alert("Debes iniciar sesión para realizar una compra.");
             return;
         }
 
@@ -213,55 +344,236 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
             alert("Por favor, selecciona una dirección de entrega.");
             return;
         }
-        
+
+        if (!Array.isArray(carrito) || carrito.length === 0) {
+            alert("El carrito está vacío.");
+            return;
+        }
+
         try {
             setProcesando(true);
-            
-            // Llamar a la Netlify Function
-            const response = await fetch('/.netlify/functions/create-checkout-session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: session?.access_token ? `Bearer ${session.access_token}` : '',
-                },
-                body: JSON.stringify({ 
-                    carrito, 
-                    id_direccion: idDireccionSel 
-                }),
+
+            // Guardamos una copia antes de limpiar el carrito.
+            const itemsComprados = [...carrito];
+
+            // ============================================================
+            // 1. OBTENER PERFIL DEL COMPRADOR
+            // ============================================================
+            const { data: perfiles, error: perfilError } = await supabase
+                .from("perfiles")
+                .select("perfil_id")
+                .eq("id_usuario", user.id)
+                .limit(1);
+
+            if (perfilError) {
+                throw new Error(
+                    `No se pudo obtener tu perfil: ${perfilError.message}`
+                );
+            }
+
+            const perfil = perfiles?.[0];
+
+            if (!perfil?.perfil_id) {
+                throw new Error(
+                    "No se encontró un perfil asociado a tu usuario."
+                );
+            }
+
+            // ============================================================
+            // 2. CONSULTAR PRODUCTOS REALES Y VALIDAR STOCK
+            // ============================================================
+            const idsProductos = [...new Set(
+                carrito.map((item) => item.id_producto).filter(Boolean)
+            )];
+
+            if (idsProductos.length === 0) {
+                throw new Error("No se encontraron productos válidos en el carrito.");
+            }
+
+            const { data: productosBD, error: productosError } = await supabase
+                .from("productos")
+                .select("id_producto, nombre_producto, precio_venta, stock, id_tienda")
+                .in("id_producto", idsProductos);
+
+            if (productosError) {
+                throw new Error(
+                    `No se pudieron verificar los productos: ${productosError.message}`
+                );
+            }
+
+            const mapaProductos = new Map(
+                (productosBD || []).map((producto) => [
+                    producto.id_producto,
+                    producto
+                ])
+            );
+
+            // Sumar cantidades por producto por si el mismo producto aparece
+            // varias veces con distintas tallas o colores.
+            const cantidadesPorProducto = new Map();
+
+            carrito.forEach((item) => {
+                const cantidad = Number(item.cantidad) || 0;
+                const acumulado = cantidadesPorProducto.get(item.id_producto) || 0;
+                cantidadesPorProducto.set(
+                    item.id_producto,
+                    acumulado + cantidad
+                );
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Error al procesar la compra');
+            for (const [idProducto, cantidadSolicitada] of cantidadesPorProducto) {
+                const producto = mapaProductos.get(idProducto);
+
+                if (!producto) {
+                    throw new Error(
+                        "Uno de los productos del carrito ya no está disponible."
+                    );
+                }
+
+                const stockActual = Number(producto.stock) || 0;
+
+                if (cantidadSolicitada < 1) {
+                    throw new Error(
+                        `La cantidad de ${producto.nombre_producto} no es válida.`
+                    );
+                }
+
+                if (stockActual < cantidadSolicitada) {
+                    throw new Error(
+                        `No hay suficiente stock de ${producto.nombre_producto}. ` +
+                        `Disponible: ${stockActual}.`
+                    );
+                }
             }
 
-            const data = await response.json();
-            
-            if (data?.url) {
-                // Save cart temporarily so we can process it after redirect
-                localStorage.setItem('carritoPendiente', JSON.stringify(carrito));
-                localStorage.setItem('totalPendiente', total.toString());
-                localStorage.setItem('direccionPendiente', idDireccionSel);
-                
-                // Redirect to Stripe
-                window.location.href = data.url;
-            } else {
-                throw new Error("No se obtuvo la URL de pago.");
+            // ============================================================
+            // 3. CALCULAR TOTAL DESDE LOS PRECIOS REALES DE LA BASE
+            // ============================================================
+            const totalCompra = carrito.reduce((acumulado, item) => {
+                const producto = mapaProductos.get(item.id_producto);
+
+                if (!producto) return acumulado;
+
+                return acumulado +
+                    (Number(producto.precio_venta) * Number(item.cantidad));
+            }, 0);
+
+            if (!Number.isFinite(totalCompra) || totalCompra <= 0) {
+                throw new Error("El total de la compra no es válido.");
             }
-            
+
+            // ============================================================
+            // 4. CREAR LA VENTA
+            // ============================================================
+            const idOperacion =
+                `SIM-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+            const { data: venta, error: ventaError } = await supabase
+                .from("ventas")
+                .insert({
+                    id_usuario: user.id,
+                    monto_total: totalCompra,
+                    id_estado: 1,
+                    id_stripe_intent: idOperacion,
+                    id_direccion: idDireccionSel
+                })
+                .select("venta_id")
+                .single();
+
+            if (ventaError) {
+                throw new Error(
+                    `No se pudo registrar la venta: ${ventaError.message}`
+                );
+            }
+
+            if (!venta?.venta_id) {
+                throw new Error(
+                    "La venta se creó, pero no se pudo obtener su identificador."
+                );
+            }
+
+            // ============================================================
+            // 5. CREAR PEDIDOS
+            // ============================================================
+            const pedidos = carrito.map((item) => {
+                const producto = mapaProductos.get(item.id_producto);
+
+                return {
+                    perfil_id: perfil.perfil_id,
+                    venta_id: venta.venta_id,
+                    id_producto: item.id_producto,
+                    id_estado: 1,
+                    id_tienda: producto.id_tienda,
+                    precio_unitario: Number(producto.precio_venta),
+                    cantidad: Number(item.cantidad),
+                    talla_seleccionada: item.talla_seleccionada || null,
+                    color_seleccionado: item.color_seleccionado || null
+                };
+            });
+
+            const { error: pedidosError } = await supabase
+                .from("pedidos")
+                .insert(pedidos);
+
+            if (pedidosError) {
+                // Intento de limpieza de la cabecera de venta si todavía
+                // no se pudo crear ningún pedido.
+                await supabase
+                    .from("ventas")
+                    .delete()
+                    .eq("venta_id", venta.venta_id);
+
+                throw new Error(
+                    `No se pudieron registrar los pedidos: ${pedidosError.message}`
+                );
+            }
+
+            // ============================================================
+            // 6. DESCONTAR STOCK
+            // ============================================================
+            for (const [idProducto, cantidadComprada] of cantidadesPorProducto) {
+                const producto = mapaProductos.get(idProducto);
+                const nuevoStock =
+                    Number(producto.stock) - Number(cantidadComprada);
+
+                const { error: stockError } = await supabase
+                    .from("productos")
+                    .update({
+                        stock: nuevoStock
+                    })
+                    .eq("id_producto", idProducto);
+
+                if (stockError) {
+                    throw new Error(
+                        `La compra fue registrada, pero no se pudo actualizar ` +
+                        `el stock de ${producto.nombre_producto}: ${stockError.message}`
+                    );
+                }
+            }
+
+            // ============================================================
+            // 7. COMPRA COMPLETADA
+            // ============================================================
+            setCarrito([]);
+            setMostrar(false);
+
+            if (typeof onCompraExitosa === "function") {
+                onCompraExitosa(itemsComprados);
+            }
         } catch (err) {
-            console.error("Error al procesar compra:", err);
-            // Mostrar mensaje más descriptivo si es posible
-            const mensajeError = err.message.includes('Invalid URL') 
-                ? "Error de URL: Posiblemente una imagen de producto es demasiado grande o inválida para Stripe."
-                : `Ocurrió un error al procesar tu compra: ${err.message}`;
-            alert(mensajeError);
+            console.error("Error al procesar la compra:", err);
+
+            alert(
+                "Ocurrió un error al procesar tu compra: " +
+                (err?.message || "Error desconocido")
+            );
         } finally {
             setProcesando(false);
         }
     };
 
     return (
+        <>
         <Modal
             show={mostrar}
             onHide={() => setMostrar(false)}
@@ -460,7 +772,7 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
                     <button
                         type="button"
                         className="cg-confirm-btn"
-                        onClick={simularCompra}
+                        onClick={abrirPago}
                         disabled={procesando}
                     >
                         <span className="cg-confirm-sheen" aria-hidden="true"></span>
@@ -484,6 +796,309 @@ const CarritoModal = ({ mostrar, setMostrar, carrito, setCarrito, total, onCompr
                 </div>
             )}
         </Modal>
+
+        <Modal
+            show={mostrarPago}
+            onHide={() => {
+                if (!procesando) {
+                    setMostrarPago(false);
+                    setErrorPago("");
+                    setTarjetaGirando(false);
+                }
+            }}
+            centered
+            size="lg"
+            dialogClassName="payment-modal-dialog"
+            contentClassName="payment-modal-content"
+        >
+            <Modal.Body className="p-0">
+                <div className="payment-shell">
+                    <button
+                        type="button"
+                        className="payment-close"
+                        onClick={() => {
+                            if (!procesando) {
+                                setMostrarPago(false);
+                                setErrorPago("");
+                                setTarjetaGirando(false);
+                            }
+                        }}
+                        disabled={procesando}
+                        aria-label="Cerrar"
+                    >
+                        <i className="bi bi-x-lg" />
+                    </button>
+
+                    <div className="payment-heading">
+                        <span>Pago seguro</span>
+                        <h2>Completa tu compra</h2>
+                        <p>
+                            Esta pantalla simula el pago para pruebas del sistema.
+                        </p>
+                    </div>
+
+                    <div className="payment-layout">
+                        <div className="payment-card-column">
+                            <div className={`payment-card-scene ${tarjetaGirando ? "is-flipped" : ""}`}>
+                                <div className="payment-card-3d">
+                                    <div className="payment-card-face payment-card-front">
+                                        <div className="payment-card-top">
+                                            <span className="payment-chip">
+                                                <i className="bi bi-credit-card-2-front" />
+                                            </span>
+
+                                            <span className="payment-contactless">
+                                                <i className="bi bi-wifi" />
+                                            </span>
+                                        </div>
+
+                                        <div className="payment-card-number">
+                                            {numeroTarjeta || "0000 0000 0000 0000"}
+                                        </div>
+
+                                        <div className="payment-card-bottom">
+                                            <div>
+                                                <small>Titular</small>
+                                                <strong>
+                                                    {titular || "NOMBRE DEL TITULAR"}
+                                                </strong>
+                                            </div>
+
+                                            <div>
+                                                <small>Vence</small>
+                                                <strong>
+                                                    {vencimiento || "MM/AA"}
+                                                </strong>
+                                            </div>
+
+                                            <div className="payment-brand">
+                                                {detectarTipoTarjeta(numeroTarjeta) === "mastercard"
+                                                    ? "Mastercard"
+                                                    : detectarTipoTarjeta(numeroTarjeta) === "visa"
+                                                        ? "VISA"
+                                                        : "CARD"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="payment-card-face payment-card-back">
+                                        <div className="payment-magnetic-strip" />
+
+                                        <div className="payment-signature-area">
+                                            <span>Firma autorizada</span>
+                                            <strong>{cvv || "CVV"}</strong>
+                                        </div>
+
+                                        <div className="payment-back-name">
+                                            {titular || "NOMBRE DEL TITULAR"}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="payment-summary">
+                                <div>
+                                    <span>Productos</span>
+                                    <strong>{carrito.length}</strong>
+                                </div>
+
+                                <div>
+                                    <span>Envío</span>
+                                    <strong>Gratis</strong>
+                                </div>
+
+                                <div className="payment-summary-total">
+                                    <span>Total a pagar</span>
+                                    <strong>
+                                        C$ {Number(total).toFixed(2)}
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form
+                            className="payment-form"
+                            onSubmit={procesarPagoConTarjeta}
+                        >
+                            {errorPago && (
+                                <div className="payment-error">
+                                    <i className="bi bi-exclamation-circle" />
+                                    <span>{errorPago}</span>
+                                </div>
+                            )}
+
+                            <div className="payment-methods">
+                                <span>Método de pago</span>
+
+                                <div className="payment-method-options">
+                                    <button
+                                        type="button"
+                                        className={`payment-method ${
+                                            detectarTipoTarjeta(numeroTarjeta) === "visa"
+                                                ? "active"
+                                                : ""
+                                        }`}
+                                    >
+                                        VISA
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className={`payment-method mastercard ${
+                                            detectarTipoTarjeta(numeroTarjeta) === "mastercard"
+                                                ? "active"
+                                                : ""
+                                        }`}
+                                    >
+                                        <span />
+                                        <span />
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="payment-method"
+                                        disabled
+                                    >
+                                        PayPal
+                                    </button>
+                                </div>
+                            </div>
+
+                            <label className="payment-field">
+                                <span>Número de tarjeta</span>
+
+                                <div className="payment-input-wrapper">
+                                    <i className="bi bi-credit-card" />
+
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete="cc-number"
+                                        placeholder="0000 0000 0000 0000"
+                                        value={numeroTarjeta}
+                                        onFocus={() => setTarjetaGirando(false)}
+                                        onChange={(e) =>
+                                            setNumeroTarjeta(
+                                                formatearNumeroTarjeta(e.target.value)
+                                            )
+                                        }
+                                        disabled={procesando}
+                                    />
+                                </div>
+                            </label>
+
+                            <label className="payment-field">
+                                <span>Nombre del titular</span>
+
+                                <div className="payment-input-wrapper">
+                                    <i className="bi bi-person" />
+
+                                    <input
+                                        type="text"
+                                        autoComplete="cc-name"
+                                        placeholder="Como aparece en la tarjeta"
+                                        value={titular}
+                                        onFocus={() => setTarjetaGirando(false)}
+                                        onChange={(e) =>
+                                            setTitular(
+                                                e.target.value
+                                                    .replace(/[0-9]/g, "")
+                                                    .slice(0, 35)
+                                                    .toUpperCase()
+                                            )
+                                        }
+                                        disabled={procesando}
+                                    />
+                                </div>
+                            </label>
+
+                            <div className="payment-field-row">
+                                <label className="payment-field">
+                                    <span>Vencimiento</span>
+
+                                    <div className="payment-input-wrapper">
+                                        <i className="bi bi-calendar3" />
+
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            autoComplete="cc-exp"
+                                            placeholder="MM/AA"
+                                            value={vencimiento}
+                                            onFocus={() => setTarjetaGirando(false)}
+                                            onChange={(e) =>
+                                                setVencimiento(
+                                                    formatearVencimiento(e.target.value)
+                                                )
+                                            }
+                                            disabled={procesando}
+                                        />
+                                    </div>
+                                </label>
+
+                                <label className="payment-field">
+                                    <span>CVV</span>
+
+                                    <div className="payment-input-wrapper">
+                                        <i className="bi bi-shield-lock" />
+
+                                        <input
+                                            type="password"
+                                            inputMode="numeric"
+                                            autoComplete="cc-csc"
+                                            placeholder="123"
+                                            value={cvv}
+                                            onFocus={() => setTarjetaGirando(true)}
+                                            onBlur={() => setTarjetaGirando(false)}
+                                            onChange={(e) =>
+                                                setCvv(
+                                                    e.target.value
+                                                        .replace(/\D/g, "")
+                                                        .slice(0, 4)
+                                                )
+                                            }
+                                            disabled={procesando}
+                                        />
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div className="payment-security">
+                                <i className="bi bi-shield-check" />
+                                Los datos completos de la tarjeta y el CVV no se guardan.
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="payment-submit"
+                                disabled={procesando}
+                            >
+                                {procesando ? (
+                                    <>
+                                        <Spinner
+                                            animation="border"
+                                            size="sm"
+                                        />
+                                        Procesando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="bi bi-lock-fill" />
+                                        Pagar C$ {Number(total).toFixed(2)}
+                                    </>
+                                )}
+                            </button>
+
+                            <small className="payment-test-number">
+                                Tarjeta de prueba: 4242 4242 4242 4242,
+                                vencimiento futuro y cualquier CVV de 3 dígitos.
+                            </small>
+                        </form>
+                    </div>
+                </div>
+            </Modal.Body>
+        </Modal>
+        </>
     );
 };
 
