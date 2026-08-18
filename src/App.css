@@ -5938,8 +5938,8 @@ body {
   }
 
   .liquid-navbar-logo {
-    width: 35px;
-    height: 35px;
+    width: auto;
+    height: 38px;
   }
 
   .liquid-navbar-brand {
