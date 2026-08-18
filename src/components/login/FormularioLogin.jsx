@@ -9,7 +9,6 @@ const FormularioLogin = ({
   setContraseña, 
   iniciarSesion, 
   iniciarSesionConGoogle,
-  iniciarSesionConApple,
   cargando 
 }) => {
   const [mostrarContraseña, setMostrarContraseña] = useState(false);
@@ -47,6 +46,7 @@ const FormularioLogin = ({
           />
           <InputGroup.Text 
             onClick={() => setMostrarContraseña(!mostrarContraseña)}
+            style={{ cursor: 'pointer' }}
           >
             <i className={`bi ${mostrarContraseña ? 'bi-eye-slash' : 'bi-eye'}`}></i>
           </InputGroup.Text>
@@ -76,23 +76,14 @@ const FormularioLogin = ({
 
       <Button 
         type="button" 
-        className="auth-oauth-btn w-100 shadow-sm d-flex justify-content-center align-items-center mb-2" 
+        className="auth-oauth-btn w-100 shadow-sm d-flex justify-content-center align-items-center" 
         onClick={iniciarSesionConGoogle}
         disabled={cargando}
       >
         <i className="bi bi-google me-2 text-danger"></i> Continuar con Google
       </Button>
-
-      <Button 
-        type="button" 
-        className="auth-oauth-btn w-100 shadow-sm d-flex justify-content-center align-items-center" 
-        onClick={iniciarSesionConApple}
-        disabled={cargando}
-      >
-        <i className="bi bi-apple me-2"></i> Continuar con Apple
-      </Button>
     </Form>
   );
 };
 
-export default FormularioLogin; 
+export default FormularioLogin;

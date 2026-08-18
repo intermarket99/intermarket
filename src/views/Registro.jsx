@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import FormularioRegistro from "../components/login/FormularioRegistro";
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
-import { asegurarPerfil } from "../services/perfilService";
+import { asegurarPerfil, asegurarUsuario } from "../services/perfilService";
 import logoCompleto from "../assets/LogoCom1.png";
 import "../App.css";
 
@@ -18,98 +18,6 @@ function Registro() {
   const navegar = useNavigate();
   const { user } = useAuth();
 
-  const generarUsername = (email, userId) => {
-    const nombreBase = email?.split("@")[0] || "usuario";
-    const nombreLimpio = nombreBase
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9_]/g, "_")
-      .replace(/_+/g, "_")
-      .replace(/^_|_$/g, "");
-    return `${nombreLimpio}_${userId.slice(0, 6)}`;
-  };
-
-  const crearUsuarioPublico = async (usuarioAuth, email) => {
-    if (!usuarioAuth?.id) {
-      throw new Error("No se recibió el identificador del usuario.");
-    }
-
-    const correoLimpio = email?.trim().toLowerCase() || usuarioAuth.email?.trim().toLowerCase() || null;
-
-    const { data: usuarioExistente, error: consultarError } = await supabase
-      .from("usuarios")
-      .select("id_usuario, username, email, rol, restringido, infracciones")
-      .eq("id_usuario", usuarioAuth.id)
-      .maybeSingle();
-
-    if (consultarError) {
-      throw new Error(`No se pudo comprobar el usuario: ${consultarError.message}`);
-    }
-
-    if (usuarioExistente) {
-      return usuarioExistente;
-    }
-
-    if (correoLimpio) {
-      const { data: usuarioPorCorreo, error: correoError } = await supabase
-        .from("usuarios")
-        .select("id_usuario, email")
-        .eq("email", correoLimpio)
-        .maybeSingle();
-
-      if (correoError) {
-        throw new Error(`No se pudo comprobar el correo: ${correoError.message}`);
-      }
-
-      if (usuarioPorCorreo && usuarioPorCorreo.id_usuario !== usuarioAuth.id) {
-        throw new Error("Este correo ya está relacionado con otro usuario.");
-      }
-    }
-
-    const username = generarUsername(correoLimpio || "usuario", usuarioAuth.id);
-
-    const { data: usuarioGuardado, error: guardarError } = await supabase
-      .from("usuarios")
-      .upsert(
-        {
-          id_usuario: usuarioAuth.id,
-          username,
-          email: correoLimpio,
-          rol: "comprador",
-          restringido: false,
-          infracciones: 0
-        },
-        { onConflict: "id_usuario", ignoreDuplicates: true }
-      )
-      .select("id_usuario, username, email, rol, restringido, infracciones")
-      .maybeSingle();
-
-    if (guardarError && guardarError.code !== "23505") {
-      throw new Error(`No se pudo crear el perfil del usuario: ${guardarError.message}`);
-    }
-
-    if (usuarioGuardado) {
-      return usuarioGuardado;
-    }
-
-    const { data: usuarioRecuperado, error: recuperarError } = await supabase
-      .from("usuarios")
-      .select("id_usuario, username, email, rol, restringido, infracciones")
-      .eq("id_usuario", usuarioAuth.id)
-      .maybeSingle();
-
-    if (recuperarError) {
-      throw new Error(`No se pudo recuperar el usuario: ${recuperarError.message}`);
-    }
-
-    if (!usuarioRecuperado) {
-      throw new Error("No se pudo crear ni recuperar el usuario público.");
-    }
-
-    return usuarioRecuperado;
-  };
-
   const registrarUsuario = async () => {
     setRegistroPorCorreoEnProceso(true);
 
@@ -121,21 +29,25 @@ function Registro() {
 
       if (!correoLimpio) {
         setError("Debes ingresar un correo electrónico.");
+        setRegistroPorCorreoEnProceso(false);
         return;
       }
 
       if (!contraseña) {
         setError("Debes ingresar una contraseña.");
+        setRegistroPorCorreoEnProceso(false);
         return;
       }
 
       if (contraseña.length < 6) {
         setError("La contraseña debe tener al menos 6 caracteres.");
+        setRegistroPorCorreoEnProceso(false);
         return;
       }
 
       if (contraseña !== confirmarContraseña) {
         setError("Las contraseñas no coinciden.");
+        setRegistroPorCorreoEnProceso(false);
         return;
       }
 
@@ -153,13 +65,16 @@ function Registro() {
         const mensaje = authError.message || "";
         const mensajeNormalizado = mensaje.toLowerCase();
 
-        if (mensajeNormalizado.includes("already registered") || mensajeNormalizado.includes("already been registered")) {
-          setError("Este correo ya está registrado.");
+        if (mensajeNormalizado.includes("already registered") || 
+            mensajeNormalizado.includes("already been registered")) {
+          setError("Este correo ya está registrado. Por favor, inicia sesión.");
         } else if (mensajeNormalizado.includes("password")) {
           setError("La contraseña debe tener al menos 6 caracteres.");
         } else {
           setError(`Error al registrar: ${mensaje}`);
         }
+        setCargando(false);
+        setRegistroPorCorreoEnProceso(false);
         return;
       }
 
@@ -167,7 +82,7 @@ function Registro() {
         throw new Error("Supabase no devolvió el usuario creado.");
       }
 
-      await crearUsuarioPublico(data.user, correoLimpio);
+      await asegurarUsuario(data.user, correoLimpio);
       await asegurarPerfil(data.user.id);
 
       localStorage.setItem("rol-activo", "comprador");
@@ -176,17 +91,25 @@ function Registro() {
         setExito("Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
         setTimeout(() => {
           navegar("/login", { replace: true });
-        }, 2500);
+        }, 3000);
+        setCargando(false);
+        setRegistroPorCorreoEnProceso(false);
         return;
       }
 
       setExito("¡Cuenta creada correctamente!");
       setTimeout(() => {
         navegar("/seleccion-rol", { replace: true });
-      }, 1200);
+      }, 1500);
+      
     } catch (err) {
       console.error("Error al registrar usuario:", err);
-      setError(err.message || "Error de conexión con el servidor.");
+      
+      if (err.message && err.message.includes("duplicate key")) {
+        setError("Este correo ya está registrado. Por favor, inicia sesión.");
+      } else {
+        setError(err.message || "Error de conexión con el servidor. Intenta de nuevo.");
+      }
     } finally {
       setCargando(false);
       setTimeout(() => {
@@ -200,11 +123,27 @@ function Registro() {
       setCargando(true);
       setError(null);
       localStorage.removeItem("rol-activo");
+      
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/registro` }
+        options: { 
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
       });
-      if (oauthError) throw oauthError;
+      
+      if (oauthError) {
+        console.error("Error de Google OAuth:", oauthError);
+        if (oauthError.message.includes("provider is not enabled")) {
+          setError("Google no está configurado en el sistema. Contacta al administrador.");
+        } else {
+          setError("Error de conexión con Google. Intenta de nuevo.");
+        }
+        setCargando(false);
+      }
     } catch (err) {
       console.error("Error con Google:", err);
       setError("Error de conexión con Google.");
@@ -217,11 +156,23 @@ function Registro() {
       setCargando(true);
       setError(null);
       localStorage.removeItem("rol-activo");
+      
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "apple",
-        options: { redirectTo: `${window.location.origin}/registro` }
+        options: { 
+          redirectTo: window.location.origin,
+        }
       });
-      if (oauthError) throw oauthError;
+      
+      if (oauthError) {
+        console.error("Error de Apple OAuth:", oauthError);
+        if (oauthError.message.includes("provider is not enabled")) {
+          setError("Apple no está configurado en el sistema. Contacta al administrador.");
+        } else {
+          setError("Error de conexión con Apple. Intenta de nuevo.");
+        }
+        setCargando(false);
+      }
     } catch (err) {
       console.error("Error con Apple:", err);
       setError("Error de conexión con Apple.");
@@ -231,12 +182,12 @@ function Registro() {
 
   useEffect(() => {
     const asegurarUsuarioOAuth = async () => {
-      if (registroPorCorreoEnProceso || !user?.id || !user?.email) {
+      if (registroPorCorreoEnProceso || !user?.id) {
         return;
       }
 
       try {
-        await crearUsuarioPublico(user, user.email);
+        await asegurarUsuario(user, user.email);
         await asegurarPerfil(user.id);
 
         if (!localStorage.getItem("rol-activo")) {
@@ -246,7 +197,7 @@ function Registro() {
         navegar("/seleccion-rol", { replace: true });
       } catch (err) {
         console.error("Error completando usuario autenticado:", err);
-        setError(err.message || "No se pudo completar el perfil.");
+        setError(err.message || "No se pudo completar el perfil. Intenta de nuevo.");
       }
     };
 
@@ -319,3 +270,4 @@ function Registro() {
 }
 
 export default Registro;
+

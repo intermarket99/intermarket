@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import FormularioLogin from '../components/login/FormularioLogin';
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
+import { asegurarPerfil, asegurarUsuario } from "../services/perfilService";
 import logoCompleto from "../assets/LogoCom1.png";
 import "../App.css";
 
@@ -18,19 +19,33 @@ function Login() {
     try {
       setCargando(true);
       setError(null);
+      
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: usuario,
         password: contraseña,
       });
 
       if (authError) {
-        setError("Credenciales incorrectas. Verifica tus datos.");
+        if (authError.message.includes("Invalid login credentials")) {
+          setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+        } else if (authError.message.includes("Email not confirmed")) {
+          setError("Por favor, confirma tu correo electrónico antes de iniciar sesión.");
+        } else {
+          setError(authError.message || "Error al iniciar sesión. Intenta de nuevo.");
+        }
         return;
       }
 
+      if (data?.user) {
+        await asegurarUsuario(data.user);
+        await asegurarPerfil(data.user.id);
+      }
+
       localStorage.removeItem("rol-activo");
+      
     } catch (err) {
-      setError("Error de conexión con el servidor.");
+      console.error("Error en iniciarSesion:", err);
+      setError("Error de conexión con el servidor. Intenta de nuevo.");
     } finally {
       setCargando(false);
     }
@@ -41,12 +56,29 @@ function Login() {
       setCargando(true);
       setError(null);
       localStorage.removeItem("rol-activo");
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin }
+        options: { 
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
       });
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Error de Google:", error);
+        if (error.message.includes("provider is not enabled")) {
+          setError("Google no está configurado en el sistema. Contacta al administrador.");
+        } else {
+          setError("Error al iniciar sesión con Google. Intenta de nuevo.");
+        }
+        setCargando(false);
+      }
     } catch (err) {
+      console.error("Error en iniciarSesionConGoogle:", err);
       setError("Error de conexión con Google.");
       setCargando(false);
     }
@@ -57,26 +89,78 @@ function Login() {
       setCargando(true);
       setError(null);
       localStorage.removeItem("rol-activo");
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
-        options: { redirectTo: window.location.origin }
+        options: { 
+          redirectTo: window.location.origin,
+        }
       });
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Error de Apple:", error);
+        if (error.message.includes("provider is not enabled")) {
+          setError("Apple no está configurado en el sistema. Contacta al administrador.");
+        } else {
+          setError("Error al iniciar sesión con Apple. Intenta de nuevo.");
+        }
+        setCargando(false);
+      }
     } catch (err) {
+      console.error("Error en iniciarSesionConApple:", err);
       setError("Error de conexión con Apple.");
       setCargando(false);
     }
   };
 
-  useEffect(() => { 
-    if (user && !loading) {
-      if (role === 'admin') {
-        navegar("/admin-inicio", { replace: true });
-      } else {
-        navegar("/seleccion-rol", { replace: true });
+  // Efecto para manejar redirección después de login con OAuth
+  useEffect(() => {
+    const handleOAuthRedirect = async () => {
+      if (user && !loading) {
+        try {
+          await asegurarUsuario(user);
+          await asegurarPerfil(user.id);
+        } catch (err) {
+          console.error("Error asegurando usuario/perfil en OAuth:", err);
+          setError("Error al completar el perfil. Intenta de nuevo.");
+          return;
+        }
+        
+        if (role === 'admin') {
+          navegar("/admin-inicio", { replace: true });
+        } else {
+          navegar("/seleccion-rol", { replace: true });
+        }
       }
-    }
+    };
+
+    handleOAuthRedirect();
   }, [user, loading, role, navegar]);
+
+  // Efecto para verificar sesión OAuth existente
+  useEffect(() => {
+    const checkOAuthSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && !loading) {
+        try {
+          await asegurarUsuario(session.user);
+          await asegurarPerfil(session.user.id);
+        } catch (err) {
+          console.error("Error asegurando usuario/perfil en sesión existente:", err);
+          setError("Error al completar el perfil. Intenta de nuevo.");
+          return;
+        }
+        
+        if (role === 'admin') {
+          navegar("/admin-inicio", { replace: true });
+        } else {
+          navegar("/seleccion-rol", { replace: true });
+        }
+      }
+    };
+
+    checkOAuthSession();
+  }, [loading, role, navegar]);
 
   const MobileNavbar = () => (
     <div className="auth-mobile-navbar">
