@@ -5,6 +5,7 @@ import {
     Col,
     Spinner
 } from "react-bootstrap";
+import { useSearchParams } from "react-router-dom";
 
 import { supabase } from "../database/supabaseconfig";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +20,7 @@ import ModalPostCompra from "../components/catalogo/ModalPostCompra";
 
 function Catalogo() {
     const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [productos, setProductos] = useState([]);
     const [categorias, setCategorias] = useState([]);
@@ -56,6 +58,9 @@ function Catalogo() {
     const [miTiendaId, setMiTiendaId] = useState(null);
 
     const [esMovil, setEsMovil] = useState(window.innerWidth < 768);
+
+    // Evita reabrir el mismo producto del QR muchas veces
+    const [productoQrProcesado, setProductoQrProcesado] = useState(null);
 
     const ITEMS_POR_PAGINA = 12;
 
@@ -114,6 +119,72 @@ function Catalogo() {
         };
         cargarSugerencias();
     }, [busqueda]);
+
+    // ============================================================
+    // ABRIR PRODUCTO DESDE QR / ENLACE COMPARTIDO
+    // URL: /catalogo?producto={id_producto}
+    // ============================================================
+    useEffect(() => {
+        const productoUrlId = searchParams.get("producto");
+        if (!productoUrlId) return;
+        if (productoQrProcesado === productoUrlId) return;
+
+        const abrirDesdeUrl = async () => {
+            try {
+                // 1) Buscar en la lista ya cargada
+                const enLista = productos.find(
+                    (p) => String(p.id_producto) === String(productoUrlId)
+                );
+
+                if (enLista) {
+                    setProductoSeleccionado(enLista);
+                    setMostrarModalDetalle(true);
+                    setProductoQrProcesado(productoUrlId);
+                    return;
+                }
+
+                // 2) Si no está en la página actual, traerlo de Supabase
+                const { data, error } = await supabase
+                    .from("productos")
+                    .select(`
+                        *,
+                        categorias (nombre_categoria),
+                        tiendas (
+                            nombre_tienda,
+                            imagen_url,
+                            perfiles (usuarios (username))
+                        )
+                    `)
+                    .eq("id_producto", productoUrlId)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error("Error al abrir producto desde QR:", error);
+                    return;
+                }
+
+                if (data) {
+                    setProductoSeleccionado(data);
+                    setMostrarModalDetalle(true);
+                    setProductoQrProcesado(productoUrlId);
+                }
+            } catch (err) {
+                console.error("Error procesando enlace del producto:", err);
+            }
+        };
+
+        abrirDesdeUrl();
+    }, [searchParams, productos, productoQrProcesado]);
+
+    // Al cerrar el modal, limpia el query param para no reabrir al refrescar
+    const cerrarModalDetalle = (valor) => {
+        setMostrarModalDetalle(valor);
+        if (valor === false && searchParams.get("producto")) {
+            const nuevos = new URLSearchParams(searchParams);
+            nuevos.delete("producto");
+            setSearchParams(nuevos, { replace: true });
+        }
+    };
 
     const cargarProductos = async (paginaSolicitada = 0, nuevaCarga = false) => {
         try {
@@ -555,7 +626,6 @@ function Catalogo() {
                                 <p>Encuentra productos de nuestra comunidad</p>
                             </div>
                         </div>
-
                     </div>
 
                     <div className="catalogo-search-wrapper">
@@ -851,7 +921,7 @@ function Catalogo() {
                                             <TarjetaCatalogoMovile
                                                 producto={producto}
                                                 abrirModalDetalles={abrirModalDetalles}
-                                                abrirModalContacto={abrirModalContacto} /* Se agregó esta línea */
+                                                abrirModalContacto={abrirModalContacto}
                                                 agregarAlCarrito={agregarAlCarrito}
                                                 miTiendaId={miTiendaId}
                                             />
@@ -912,7 +982,7 @@ function Catalogo() {
 
             <ModalDetalleProducto
                 mostrar={mostrarModalDetalle}
-                setMostrar={setMostrarModalDetalle}
+                setMostrar={cerrarModalDetalle}
                 producto={productoSeleccionado}
                 agregarAlCarrito={agregarAlCarrito}
             />
