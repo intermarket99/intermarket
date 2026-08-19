@@ -134,6 +134,42 @@ const Tiendas = () => {
         return;
       }
 
+      // ============================================================
+      // VERIFICAR LÍMITE DE TIENDAS POR SUSCRIPCIÓN
+      // ============================================================
+      try {
+        const { data: suscripcion, error: suscripcionError } = await supabase
+          .from("suscripciones")
+          .select("limite_tiendas")
+          .eq("id_usuario", user.id)
+          .eq("estado", "activo")
+          .maybeSingle();
+
+        if (suscripcionError) {
+          console.warn("Error al verificar suscripción:", suscripcionError);
+        }
+
+        if (suscripcion?.limite_tiendas !== null && suscripcion?.limite_tiendas !== undefined) {
+          const { count, error: countError } = await supabase
+            .from("tiendas")
+            .select("*", { count: "exact", head: true })
+            .eq("id_usuario", user.id);
+
+          if (countError) {
+            console.warn("Error al contar tiendas:", countError);
+          } else if (count >= suscripcion.limite_tiendas) {
+            setToast({
+              mostrar: true,
+              mensaje: `Has alcanzado el límite de ${suscripcion.limite_tiendas} tiendas permitidas.`,
+              tipo: "error",
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Error en verificación de límite:", err);
+      }
+
       setCargando(true);
 
       let urlPublica = null;
@@ -147,7 +183,7 @@ const Tiendas = () => {
         direccion: nuevaTienda.direccion?.trim() || null,
         latitud: nuevaTienda.latitud ?? null,
         longitud: nuevaTienda.longitud ?? null,
-        id_usuario: user.id, // dueño de la tienda
+        id_usuario: user.id,
       };
 
       const { data, error } = await supabase
@@ -158,7 +194,6 @@ const Tiendas = () => {
       if (error) throw error;
 
       if (user) {
-        // Solo vincular al perfil si aún no tiene tienda principal
         const { data: perfilData } = await supabase
           .from("perfiles")
           .select("id_tienda")
@@ -258,7 +293,6 @@ const Tiendas = () => {
         .eq("id_tienda", tiendaAEliminar.id_tienda);
       if (error) throw error;
 
-      // Si era la tienda principal del perfil, apuntar a otra o dejar null
       if (user) {
         const { data: perfilData } = await supabase
           .from("perfiles")

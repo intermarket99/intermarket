@@ -571,6 +571,42 @@ const Productos = () => {
         return;
       }
 
+      // ============================================================
+      // VERIFICAR LÍMITE DE PRODUCTOS POR SUSCRIPCIÓN
+      // ============================================================
+      try {
+        const { data: suscripcion, error: suscripcionError } = await supabase
+          .from("suscripciones")
+          .select("limite_productos")
+          .eq("id_usuario", user.id)
+          .eq("estado", "activo")
+          .maybeSingle();
+
+        if (suscripcionError) {
+          console.warn("Error al verificar suscripción:", suscripcionError);
+        }
+
+        if (suscripcion?.limite_productos !== null && suscripcion?.limite_productos !== undefined) {
+          const { count, error: countError } = await supabase
+            .from("productos")
+            .select("*", { count: "exact", head: true })
+            .eq("id_tienda", nuevoProducto.id_tienda);
+
+          if (countError) {
+            console.warn("Error al contar productos:", countError);
+          } else if (count >= suscripcion.limite_productos) {
+            setToast({
+              mostrar: true,
+              mensaje: `Has alcanzado el límite de ${suscripcion.limite_productos} productos permitidos por tienda.`,
+              tipo: "error",
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Error en verificación de límite:", err);
+      }
+
       const analisis = await analizarSeguridadProducto(nuevoProducto);
       if (!analisis.aprobado) {
         const { data: perfil } = await supabase

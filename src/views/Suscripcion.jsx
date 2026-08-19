@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal, Spinner } from "react-bootstrap";
 
@@ -108,14 +108,84 @@ const Suscripcion = () => {
   const [vencimiento, setVencimiento] = useState("");
   const [cvv, setCvv] = useState("");
 
+  const [esPlanGratuito, setEsPlanGratuito] = useState(false);
+
+  // Verificar si el usuario ya tiene una suscripción activa
+  const [suscripcionActiva, setSuscripcionActiva] = useState(null);
+  const [cargandoSuscripcion, setCargandoSuscripcion] = useState(true);
+
+  useEffect(() => {
+    const verificarSuscripcion = async () => {
+      if (!user?.id) {
+        setCargandoSuscripcion(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("suscripciones")
+          .select("*")
+          .eq("id_usuario", user.id)
+          .eq("estado", "activo")
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+          const fechaFin = new Date(data.fecha_fin);
+          const ahora = new Date();
+
+          if (fechaFin > ahora) {
+            setSuscripcionActiva(data);
+            if (data.tipo_suscripcion === "prueba") {
+              navigate("/vendedor", { replace: true });
+              return;
+            }
+            navigate("/vendedor", { replace: true });
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error verificando suscripción:", err);
+      } finally {
+        setCargandoSuscripcion(false);
+      }
+    };
+
+    verificarSuscripcion();
+  }, [user, navigate]);
+
+  // Planes con sus límites
   const planes = [
+    {
+      id: "plan_gratuito",
+      nombre: "Prueba Gratuita",
+      precio: 0,
+      duracion: "14 días",
+      tipo: "prueba",
+      limite_tiendas: 2,
+      limite_productos: 20,
+      caracteristicas: [
+        "Hasta 2 tiendas",
+        "Hasta 20 productos por tienda",
+        "Prueba gratuita por 14 días",
+        "Panel de vendedor"
+      ],
+      popular: false,
+      esGratuito: true,
+      color: "#8B5CF6"
+    },
     {
       id: "plan_bronce",
       nombre: "Plan Bronce",
       precio: 9.99,
       duracion: "Mensual",
+      tipo: "paga",
+      limite_tiendas: 3,
+      limite_productos: 50,
       caracteristicas: [
-        "Hasta 50 productos",
+        "Hasta 3 tiendas",
+        "Hasta 50 productos por tienda",
         "Soporte por email",
         "Estadísticas básicas",
         "Panel de vendedor"
@@ -127,8 +197,12 @@ const Suscripcion = () => {
       nombre: "Plan Plata",
       precio: 24.99,
       duracion: "Trimestral",
+      tipo: "paga",
+      limite_tiendas: 5,
+      limite_productos: 200,
       caracteristicas: [
-        "Hasta 200 productos",
+        "Hasta 5 tiendas",
+        "Hasta 200 productos por tienda",
         "Soporte prioritario",
         "Estadísticas avanzadas",
         "Destacados en catálogo"
@@ -140,7 +214,11 @@ const Suscripcion = () => {
       nombre: "Plan Oro",
       precio: 79.99,
       duracion: "Anual",
+      tipo: "paga",
+      limite_tiendas: 10,
+      limite_productos: 9999,
       caracteristicas: [
+        "Hasta 10 tiendas",
         "Productos ilimitados",
         "Soporte 24/7",
         "Asesoría de marketing",
@@ -151,8 +229,13 @@ const Suscripcion = () => {
   ];
 
   const [planSeleccionado, setPlanSeleccionado] = useState(
-    () => planes.find((plan) => plan.popular) || planes[0]
+    () => planes.find((plan) => plan.id === "plan_gratuito") || planes[0]
   );
+
+  // Detectar si es plan gratuito
+  useEffect(() => {
+    setEsPlanGratuito(planSeleccionado?.esGratuito || false);
+  }, [planSeleccionado]);
 
   const tipoTarjeta = useMemo(
     () => detectarTipoTarjeta(numeroTarjeta),
@@ -172,7 +255,73 @@ const Suscripcion = () => {
       return;
     }
 
+    // Si es plan gratuito, no mostrar pasarela de pago
+    if (planSeleccionado?.esGratuito) {
+      procesarPruebaGratuita();
+      return;
+    }
+
     setMostrarPago(true);
+  };
+
+  const procesarPruebaGratuita = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!user?.id) {
+        throw new Error("La sesión no está disponible.");
+      }
+
+      const fechaInicio = new Date();
+      const fechaFin = new Date(fechaInicio);
+      fechaFin.setDate(fechaFin.getDate() + 14);
+
+      const { data: suscripcionExistente, error: checkError } = await supabase
+        .from("suscripciones")
+        .select("*")
+        .eq("id_usuario", user.id)
+        .eq("tipo_suscripcion", "prueba")
+        .eq("estado", "activo")
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (suscripcionExistente) {
+        throw new Error("Ya tienes una prueba gratuita activa.");
+      }
+
+      const { data: suscripcionCreada, error: suscripcionError } = await supabase
+        .from("suscripciones")
+        .insert({
+          id_usuario: user.id,
+          plan: "Prueba Gratuita",
+          estado: "activo",
+          tipo_suscripcion: "prueba",
+          monto: 0,
+          fecha_inicio: fechaInicio.toISOString(),
+          fecha_fin: fechaFin.toISOString(),
+          limite_tiendas: planSeleccionado.limite_tiendas,
+          limite_productos: planSeleccionado.limite_productos,
+          notificacion_13_dias_enviada: false
+        })
+        .select()
+        .single();
+
+      if (suscripcionError) {
+        throw new Error(`No se pudo crear la suscripción: ${suscripcionError.message}`);
+      }
+
+      await convertirEnVendedor();
+
+      navigate("/vendedor", { replace: true });
+      
+    } catch (err) {
+      console.error("Error procesando prueba gratuita:", err);
+      setError(err.message || "No se pudo activar la prueba gratuita.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const limpiarFormularioPago = () => {
@@ -221,12 +370,6 @@ const Suscripcion = () => {
   };
 
   const registrarMetodoPago = async () => {
-    /*
-     * Por seguridad:
-     * - No guardamos el número completo.
-     * - No guardamos el CVV.
-     * - Solo guardamos los últimos cuatro dígitos y el tipo.
-     */
     const {
       error: metodoError
     } = await supabase
@@ -253,9 +396,7 @@ const Suscripcion = () => {
     const fechaFin = new Date(fechaInicio);
     fechaFin.setDate(fechaFin.getDate() + dias);
 
-    const {
-      error: cancelarAnteriorError
-    } = await supabase
+    const { error: cancelarAnteriorError } = await supabase
       .from("suscripciones")
       .update({
         estado: "cancelado"
@@ -270,18 +411,19 @@ const Suscripcion = () => {
       );
     }
 
-    const {
-      data: suscripcionCreada,
-      error: suscripcionError
-    } = await supabase
+    const { data: suscripcionCreada, error: suscripcionError } = await supabase
       .from("suscripciones")
       .insert({
         id_usuario: user.id,
         plan: planSeleccionado.nombre,
         estado: "activo",
+        tipo_suscripcion: "paga",
         monto: planSeleccionado.precio,
         fecha_inicio: fechaInicio.toISOString(),
-        fecha_fin: fechaFin.toISOString()
+        fecha_fin: fechaFin.toISOString(),
+        limite_tiendas: planSeleccionado.limite_tiendas || 0,
+        limite_productos: planSeleccionado.limite_productos || 0,
+        notificacion_13_dias_enviada: false
       })
       .select()
       .single();
@@ -311,23 +453,6 @@ const Suscripcion = () => {
       );
     }
 
-    /*
-     * Antes esta función tenía su propia copia de "asegurarPerfil"
-     * (select -> si no existe, insert), separada de la que usa
-     * Registro.jsx. Como las dos hacían lo mismo de forma
-     * independiente, si un usuario se registraba y casi de
-     * inmediato se volvía vendedor, ambas podían terminar
-     * insertando su propia fila en "perfiles" para el mismo
-     * id_usuario -> perfil duplicado -> el error
-     * "JSON object requested, multiple (or no) rows returned"
-     * en cualquier .maybeSingle() posterior (por ejemplo, al
-     * mandar un mensaje).
-     *
-     * Ahora usa el mismo servicio centralizado que Registro.jsx,
-     * que tiene un candado en memoria: si ya hay una operación de
-     * "asegurar perfil" en curso para este usuario, se une a ella
-     * en vez de crear una fila nueva.
-     */
     await asegurarPerfil(user.id);
 
     localStorage.setItem("rol-activo", "vendedor");
@@ -350,10 +475,6 @@ const Suscripcion = () => {
 
       validarFormularioPago();
 
-      /*
-       * Simulación breve de autorización.
-       * Aquí se conectará el proveedor de pagos real posteriormente.
-       */
       await new Promise((resolve) => {
         setTimeout(resolve, 1000);
       });
@@ -370,7 +491,6 @@ const Suscripcion = () => {
       });
     } catch (err) {
       console.error("Error procesando el pago:", err);
-
       setError(
         err.message ||
           "No se pudo completar el pago."
@@ -380,25 +500,28 @@ const Suscripcion = () => {
     }
   };
 
+  if (cargandoSuscripcion) {
+    return (
+      <div className="susc-page d-flex align-items-center justify-content-center">
+        <div className="text-center">
+          <Spinner animation="border" style={{ color: "#13838C" }} />
+          <p className="mt-3 text-muted">Verificando suscripción...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <section className="susc-page">
-        <div
-          className="susc-blob blob-a"
-          aria-hidden="true"
-        />
-
-        <div
-          className="susc-blob blob-b"
-          aria-hidden="true"
-        />
+        <div className="susc-blob blob-a" aria-hidden="true" />
+        <div className="susc-blob blob-b" aria-hidden="true" />
 
         <div className="susc-wrapper">
           <div className="susc-header">
             <h1 className="susc-title">
               Activa tu tienda
             </h1>
-
             <p className="susc-subtitle">
               Elige tu plan para comenzar a vender
             </p>
@@ -412,8 +535,7 @@ const Suscripcion = () => {
 
           <div className="susc-planes">
             {planes.map((plan) => {
-              const seleccionado =
-                planSeleccionado.id === plan.id;
+              const seleccionado = planSeleccionado.id === plan.id;
 
               return (
                 <div
@@ -421,15 +543,10 @@ const Suscripcion = () => {
                   role="button"
                   tabIndex={0}
                   aria-pressed={seleccionado}
-                  className={`susc-plan-card ${
-                    seleccionado ? "is-selected" : ""
-                  }`}
+                  className={`susc-plan-card ${seleccionado ? "is-selected" : ""}`}
                   onClick={() => setPlanSeleccionado(plan)}
                   onKeyDown={(event) => {
-                    if (
-                      event.key === "Enter" ||
-                      event.key === " "
-                    ) {
+                    if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       setPlanSeleccionado(plan);
                     }
@@ -440,31 +557,38 @@ const Suscripcion = () => {
                       Más popular
                     </span>
                   )}
+                  {plan.esGratuito && (
+                    <span className="susc-badge-prueba">
+                      ✦ Prueba gratuita
+                    </span>
+                  )}
 
                   <div className="susc-plan-top">
                     <span className="susc-plan-nombre">
                       {plan.nombre}
                     </span>
-
                     <span className="susc-plan-precio">
-                      ${plan.precio.toFixed(2)}
-
-                      <small>
-                        {sufijoDuracion(plan.duracion)}
-                      </small>
+                      {plan.esGratuito ? (
+                        "0$"
+                      ) : (
+                        `$${plan.precio.toFixed(2)}`
+                      )}
+                      {!plan.esGratuito && (
+                        <small>
+                          {sufijoDuracion(plan.duracion)}
+                        </small>
+                      )}
+                      {plan.esGratuito && (
+                        <small>por 14 días</small>
+                      )}
                     </span>
                   </div>
 
                   <p className="susc-plan-desc">
-                    {plan.caracteristicas
-                      .slice(0, 2)
-                      .join(", ")}
+                    {plan.caracteristicas.slice(0, 2).join(", ")}
                   </p>
 
-                  <span
-                    className="susc-plan-check"
-                    aria-hidden="true"
-                  >
+                  <span className="susc-plan-check" aria-hidden="true">
                     <i className="bi bi-check-lg" />
                   </span>
                 </div>
@@ -475,33 +599,21 @@ const Suscripcion = () => {
           <div className="susc-actions">
             <button
               type="button"
-              className={`susc-btn susc-btn-primary ${
-                btnActivo === "primario"
-                  ? "is-active"
-                  : "is-inactive"
-              }`}
+              className={`susc-btn susc-btn-primary ${btnActivo === "primario" ? "is-active" : "is-inactive"}`}
               onClick={abrirPasarela}
               onMouseEnter={() => setBtnActivo("primario")}
               onFocus={() => setBtnActivo("primario")}
               disabled={loading}
             >
-              <span
-                className="susc-btn-sheen"
-                aria-hidden="true"
-              />
-
+              <span className="susc-btn-sheen" aria-hidden="true" />
               <span className="susc-btn-label">
-                Continuar al pago
+                {planSeleccionado?.esGratuito ? "Continuar" : "Continuar al pago"}
               </span>
             </button>
 
             <button
               type="button"
-              className={`susc-btn susc-btn-secondary ${
-                btnActivo === "secundario"
-                  ? "is-active"
-                  : "is-inactive"
-              }`}
+              className={`susc-btn susc-btn-secondary ${btnActivo === "secundario" ? "is-active" : "is-inactive"}`}
               onClick={() => navigate("/seleccion-rol")}
               onMouseEnter={() => setBtnActivo("secundario")}
               onMouseLeave={() => setBtnActivo("primario")}
@@ -509,11 +621,7 @@ const Suscripcion = () => {
               onBlur={() => setBtnActivo("primario")}
               disabled={loading}
             >
-              <span
-                className="susc-btn-sheen"
-                aria-hidden="true"
-              />
-
+              <span className="susc-btn-sheen" aria-hidden="true" />
               <span className="susc-btn-label">
                 Cancelar
               </span>
@@ -522,6 +630,7 @@ const Suscripcion = () => {
         </div>
       </section>
 
+      {/* Modal de pago - SOLO para planes pagos */}
       <Modal
         show={mostrarPago}
         onHide={() => {
@@ -563,9 +672,7 @@ const Suscripcion = () => {
             <div className="payment-layout">
               <div className="payment-card-column">
                 <div
-                  className={`payment-card-scene ${
-                    tarjetaGirando ? "is-flipped" : ""
-                  }`}
+                  className={`payment-card-scene ${tarjetaGirando ? "is-flipped" : ""}`}
                 >
                   <div className="payment-card-3d">
                     <div className="payment-card-face payment-card-front">
@@ -573,17 +680,13 @@ const Suscripcion = () => {
                         <span className="payment-chip">
                           <i className="bi bi-credit-card-2-front" />
                         </span>
-
                         <span className="payment-contactless">
                           <i className="bi bi-wifi" />
                         </span>
                       </div>
-
                       <div className="payment-card-number">
-                        {numeroTarjeta ||
-                          "0000 0000 0000 0000"}
+                        {numeroTarjeta || "0000 0000 0000 0000"}
                       </div>
-
                       <div className="payment-card-bottom">
                         <div>
                           <small>Titular</small>
@@ -591,14 +694,12 @@ const Suscripcion = () => {
                             {titular || "NOMBRE DEL TITULAR"}
                           </strong>
                         </div>
-
                         <div>
                           <small>Vence</small>
                           <strong>
                             {vencimiento || "MM/AA"}
                           </strong>
                         </div>
-
                         <div className="payment-brand">
                           {tipoTarjeta === "mastercard"
                             ? "Mastercard"
@@ -611,15 +712,12 @@ const Suscripcion = () => {
 
                     <div className="payment-card-face payment-card-back">
                       <div className="payment-magnetic-strip" />
-
                       <div className="payment-signature-area">
                         <span>Firma autorizada</span>
-
                         <strong>
                           {cvv || "CVV"}
                         </strong>
                       </div>
-
                       <div className="payment-back-name">
                         {titular || "NOMBRE DEL TITULAR"}
                       </div>
@@ -632,12 +730,10 @@ const Suscripcion = () => {
                     <span>Plan seleccionado</span>
                     <strong>{planSeleccionado.nombre}</strong>
                   </div>
-
                   <div>
                     <span>Duración</span>
                     <strong>{planSeleccionado.duracion}</strong>
                   </div>
-
                   <div className="payment-summary-total">
                     <span>Total a pagar</span>
                     <strong>
@@ -647,10 +743,7 @@ const Suscripcion = () => {
                 </div>
               </div>
 
-              <form
-                className="payment-form"
-                onSubmit={procesarPago}
-              >
+              <form className="payment-form" onSubmit={procesarPago}>
                 {error && (
                   <div className="payment-error">
                     <i className="bi bi-exclamation-circle" />
@@ -660,31 +753,20 @@ const Suscripcion = () => {
 
                 <div className="payment-methods">
                   <span>Método de pago</span>
-
                   <div className="payment-method-options">
                     <button
                       type="button"
-                      className={`payment-method ${
-                        tipoTarjeta === "visa"
-                          ? "active"
-                          : ""
-                      }`}
+                      className={`payment-method ${tipoTarjeta === "visa" ? "active" : ""}`}
                     >
                       VISA
                     </button>
-
                     <button
                       type="button"
-                      className={`payment-method mastercard ${
-                        tipoTarjeta === "mastercard"
-                          ? "active"
-                          : ""
-                      }`}
+                      className={`payment-method mastercard ${tipoTarjeta === "mastercard" ? "active" : ""}`}
                     >
                       <span />
                       <span />
                     </button>
-
                     <button
                       type="button"
                       className="payment-method"
@@ -697,10 +779,8 @@ const Suscripcion = () => {
 
                 <label className="payment-field">
                   <span>Número de tarjeta</span>
-
                   <div className="payment-input-wrapper">
                     <i className="bi bi-credit-card" />
-
                     <input
                       type="text"
                       inputMode="numeric"
@@ -710,9 +790,7 @@ const Suscripcion = () => {
                       onFocus={() => setTarjetaGirando(false)}
                       onChange={(event) => {
                         setNumeroTarjeta(
-                          formatearNumeroTarjeta(
-                            event.target.value
-                          )
+                          formatearNumeroTarjeta(event.target.value)
                         );
                       }}
                     />
@@ -721,10 +799,8 @@ const Suscripcion = () => {
 
                 <label className="payment-field">
                   <span>Nombre del titular</span>
-
                   <div className="payment-input-wrapper">
                     <i className="bi bi-person" />
-
                     <input
                       type="text"
                       autoComplete="cc-name"
@@ -746,10 +822,8 @@ const Suscripcion = () => {
                 <div className="payment-field-row">
                   <label className="payment-field">
                     <span>Vencimiento</span>
-
                     <div className="payment-input-wrapper">
                       <i className="bi bi-calendar3" />
-
                       <input
                         type="text"
                         inputMode="numeric"
@@ -759,9 +833,7 @@ const Suscripcion = () => {
                         onFocus={() => setTarjetaGirando(false)}
                         onChange={(event) => {
                           setVencimiento(
-                            formatearVencimiento(
-                              event.target.value
-                            )
+                            formatearVencimiento(event.target.value)
                           );
                         }}
                       />
@@ -770,10 +842,8 @@ const Suscripcion = () => {
 
                   <label className="payment-field">
                     <span>CVV</span>
-
                     <div className="payment-input-wrapper">
                       <i className="bi bi-shield-lock" />
-
                       <input
                         type="password"
                         inputMode="numeric"
@@ -806,10 +876,7 @@ const Suscripcion = () => {
                 >
                   {loading ? (
                     <>
-                      <Spinner
-                        animation="border"
-                        size="sm"
-                      />
+                      <Spinner animation="border" size="sm" />
                       Procesando...
                     </>
                   ) : (

@@ -8024,3 +8024,61 @@ body {
   border-radius: 10px;
 }
 
+/* ============================================================
+   PLAN GRATUITO - ESTILOS MEJORADOS (SIN EMOJI)
+   ============================================================ */
+
+/* Badge de prueba gratuita - más elegante */
+.susc-badge-prueba {
+  position: absolute;
+  top: -11px;
+  right: 18px;
+  background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+  color: white;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.3px;
+  padding: 5px 14px;
+  border-radius: 100px;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Tarjeta de prueba gratuita - fondo sutil */
+.susc-plan-card.prueba-gratuita {
+  border-color: rgba(139, 92, 246, 0.25);
+  background: linear-gradient(
+    145deg,
+    rgba(139, 92, 246, 0.06),
+    rgba(139, 92, 246, 0.02)
+  );
+}
+
+/* Tarjeta seleccionada - borde y sombra morados */
+.susc-plan-card.prueba-gratuita.is-selected {
+  border-color: #8B5CF6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25), 0 16px 36px rgba(0, 0, 0, 0.15);
+}
+
+/* Precio en morado */
+.susc-plan-card.prueba-gratuita .susc-plan-precio {
+  color: #8B5CF6;
+}
+
+/* Nombre del plan en morado oscuro */
+.susc-plan-card.prueba-gratuita .susc-plan-nombre {
+  color: #6D28D9;
+}
+
+/* Check de selección en morado */
+.susc-plan-card.prueba-gratuita .susc-plan-check {
+  background: #8B5CF6;
+}
+
+/* Hover sutil en la tarjeta */
+.susc-plan-card.prueba-gratuita:hover {
+  border-color: rgba(139, 92, 246, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(139, 92, 246, 0.12);
+}
