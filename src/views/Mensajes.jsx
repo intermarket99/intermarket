@@ -154,12 +154,12 @@ const Mensajes = () => {
             const idChat = chat.id_chat.toLowerCase();
 
             return nombreOtro.includes(valor) ||
-                   nombreProducto.includes(valor) ||
-                   idChat.includes(valor);
+                nombreProducto.includes(valor) ||
+                idChat.includes(valor);
         });
     }, [textoBusqueda, chatsOrdenados, miPerfilId]);
 
-    const eliminarChat = async (idChat) => {
+    /*const eliminarChat = async (idChat) => {
         try {
             const { error } = await supabase
                 .from("chats")
@@ -177,7 +177,42 @@ const Mensajes = () => {
             console.error("Error al eliminar chat:", err.message);
             setToast({ mostrar: true, mensaje: `Error al eliminar chat: ${err.message}`, tipo: "error" });
         }
-    };
+    };*/
+
+    const eliminarChat = async (idChat) => {
+    try {
+        // 1. Primero eliminar todos los mensajes del chat
+        const { error: mensajesError } = await supabase
+            .from("mensajes")
+            .delete()
+            .eq("id_chat", idChat);
+
+        if (mensajesError) throw mensajesError;
+
+        // 2. Luego eliminar el chat
+        const { error: chatError } = await supabase
+            .from("chats")
+            .delete()
+            .eq("id_chat", idChat);
+
+        if (chatError) throw chatError;
+
+        if (chatActivo?.id_chat === idChat) {
+            setChatActivo(null);
+            if (esMovil) setVistaMovil("lista");
+        }
+
+        setToast({ mostrar: true, mensaje: "Chat eliminado exitosamente.", tipo: "exito" });
+        await cargarChats();
+    } catch (err) {
+        console.error("Error al eliminar chat:", err.message);
+        setToast({
+            mostrar: true,
+            mensaje: `Error al eliminar chat: ${err.message}`,
+            tipo: "error",
+        });
+    }
+};
 
     const seleccionarChat = (chat) => {
         setChatActivo(chat);
