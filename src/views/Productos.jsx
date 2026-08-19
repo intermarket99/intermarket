@@ -571,9 +571,6 @@ const Productos = () => {
         return;
       }
 
-      // ============================================================
-      // VERIFICAR LÍMITE DE PRODUCTOS POR SUSCRIPCIÓN
-      // ============================================================
       try {
         const { data: suscripcion, error: suscripcionError } = await supabase
           .from("suscripciones")
@@ -664,9 +661,9 @@ const Productos = () => {
         precio_venta: precioVenta,
         precio_compra: precioCompra,
         categoria_id: categoriaId,
+        id_tienda: nuevoProducto.id_tienda,
         id_estado: Number.isInteger(idEstado) ? idEstado : 2,
         imagen_url: urlsPublicas.length > 0 ? urlsPublicas : null,
-        id_tienda: nuevoProducto.id_tienda,
         stock:
           nuevoProducto.stock !== "" ? parseInt(nuevoProducto.stock, 10) : null,
         tallas:
@@ -717,6 +714,7 @@ const Productos = () => {
 
   const actualizarProducto = async () => {
     if (!productoEditar) return;
+
     try {
       if (
         !productoEditar.nombre_producto?.trim() ||
@@ -732,6 +730,15 @@ const Productos = () => {
         return;
       }
 
+      if (!productoEditar.id_tienda) {
+        setToast({
+          mostrar: true,
+          mensaje: "Debes seleccionar a qué tienda pertenece el producto.",
+          tipo: "advertencia",
+        });
+        return;
+      }
+
       const analisis = await analizarSeguridadProducto(productoEditar);
       if (!analisis.aprobado) {
         const { data: perfil } = await supabase
@@ -739,14 +746,18 @@ const Productos = () => {
           .select("infracciones")
           .eq("id_usuario", user.id)
           .single();
+
         const nuevasInfracciones = (perfil?.infracciones || 0) + 1;
+
         await supabase
           .from("perfiles")
           .update({ infracciones: nuevasInfracciones })
           .eq("id_usuario", user.id);
+
         if (nuevasInfracciones >= 2) {
           await notificarAdminInfraccion(user, analisis);
         }
+
         setToast({
           mostrar: true,
           mensaje: `🚫 Edición Bloqueada: ${analisis.motivo}`,
@@ -775,6 +786,7 @@ const Productos = () => {
         precio_venta: Number(productoEditar.precio_venta),
         precio_compra: Number(productoEditar.precio_compra),
         categoria_id: Number(productoEditar.categoria_id),
+        id_tienda: productoEditar.id_tienda,
         id_estado: Number(productoEditar.id_estado || 2),
         imagen_url: urlsPublicas.length > 0 ? urlsPublicas : null,
         stock:
@@ -795,6 +807,7 @@ const Productos = () => {
         .from("productos")
         .update(payload)
         .eq("id_producto", productoEditar.id_producto);
+
       if (error) throw error;
 
       await cargarProductos();
@@ -808,7 +821,7 @@ const Productos = () => {
       console.error("Error al actualizar producto:", err.message);
       setToast({
         mostrar: true,
-        mensaje: "Error al actualizar producto.",
+        mensaje: `Error al actualizar producto: ${err.message}`,
         tipo: "error",
       });
     } finally {
@@ -818,12 +831,36 @@ const Productos = () => {
 
   const eliminarProducto = async () => {
     if (!productoAEliminar) return;
+
     try {
+      const id = productoAEliminar.id_producto;
+
+      const { count: numPedidos, error: errPedidos } = await supabase
+        .from("pedidos")
+        .select("id_pedido", { count: "exact", head: true })
+        .eq("id_producto", id);
+
+      if (errPedidos) throw errPedidos;
+
+      if (numPedidos && numPedidos > 0) {
+        setMostrarModalEliminacion(false);
+        setToast({
+          mostrar: true,
+          mensaje: `No se puede eliminar "${productoAEliminar.nombre_producto}" porque tiene ${numPedidos} pedido(s) asociado(s). Puedes dejarlo sin stock o ocultarlo.`,
+          tipo: "advertencia",
+        });
+        return;
+      }
+
+      await supabase.from("reseñas_productos").delete().eq("producto_id", id);
+
       const { error } = await supabase
         .from("productos")
         .delete()
-        .eq("id_producto", productoAEliminar.id_producto);
+        .eq("id_producto", id);
+
       if (error) throw error;
+
       await cargarProductos();
       setMostrarModalEliminacion(false);
       setToast({
@@ -835,7 +872,10 @@ const Productos = () => {
       console.error("Error al eliminar producto:", err.message);
       setToast({
         mostrar: true,
-        mensaje: "Error al eliminar producto.",
+        mensaje:
+          err.message?.includes("foreign key") || err.code === "23503"
+            ? "No se puede eliminar: el producto está ligado a pedidos u otros registros."
+            : `Error al eliminar producto: ${err.message}`,
         tipo: "error",
       });
     }
@@ -856,170 +896,179 @@ const Productos = () => {
   }, [authLoading, user?.id, role]);
 
   return (
-    <Container>
-      <Row className="align-items-center mb-3">
-        <Col xs={9}>
-          <h3>
-            <i className="bi bi-box-seam me-2"></i>
-            {role === "admin"
-              ? "Todos los Productos - Administrador"
-              : "Mis Productos"}
-          </h3>
-        </Col>
-        {role === "vendedor" && (
-          <Col xs={3} className="text-end">
-            <Button
-              onClick={() => setMostrarModalRegistro(true)}
-              disabled={misTiendas.length === 0}
-            >
-              <i className="bi bi-plus-lg"></i> Nuevo
-            </Button>
+    <div
+      style={{
+        backgroundColor: "#f0f7fa",
+        minHeight: "100vh",
+        paddingBottom: "100px",
+      }}
+    >
+      <Container>
+        <Row className="align-items-center mb-3">
+          <Col xs={9}>
+            <h3>
+              <i className="bi bi-box-seam me-2"></i>
+              {role === "admin"
+                ? "Todos los Productos - Administrador"
+                : "Mis Productos"}
+            </h3>
           </Col>
+          {role === "vendedor" && (
+            <Col xs={3} className="text-end">
+              <Button
+                onClick={() => setMostrarModalRegistro(true)}
+                disabled={misTiendas.length === 0}
+              >
+                <i className="bi bi-plus-lg"></i> Nuevo
+              </Button>
+            </Col>
+          )}
+        </Row>
+        <hr />
+
+        {misTiendas.length === 0 && role === "vendedor" && (
+          <Alert variant="danger" className="text-center mt-4">
+            <h5>
+              <i className="bi bi-exclamation-triangle-fill me-2"></i> ¡Atención!
+            </h5>
+            <p className="mb-0">
+              Para poder agregar productos, primero debes registrar o tener
+              vinculada una <strong>Tienda</strong>. Ve a la sección &quot;Mis
+              Tiendas&quot; para crear una.
+            </p>
+          </Alert>
         )}
-      </Row>
-      <hr />
 
-      {misTiendas.length === 0 && role === "vendedor" && (
-        <Alert variant="danger" className="text-center mt-4">
-          <h5>
-            <i className="bi bi-exclamation-triangle-fill me-2"></i> ¡Atención!
-          </h5>
-          <p className="mb-0">
-            Para poder agregar productos, primero debes registrar o tener
-            vinculada una <strong>Tienda</strong>. Ve a la sección &quot;Mis
-            Tiendas&quot; para crear una.
-          </p>
-        </Alert>
-      )}
+        <CuadroBusquedas
+          textoBusqueda={textoBusqueda}
+          manejarCambioBusqueda={manejarCambioBusqueda}
+        />
 
-      <CuadroBusquedas
-        textoBusqueda={textoBusqueda}
-        manejarCambioBusqueda={manejarCambioBusqueda}
-      />
+        {role === "vendedor" && misTiendas.length > 1 && (
+          <Form.Select
+            className="mb-3"
+            value={filtroTienda}
+            onChange={(e) => setFiltroTienda(e.target.value)}
+            style={{
+              backgroundColor: "#e8f4f8",
+              border: "none",
+              borderRadius: 12,
+              maxWidth: 280,
+            }}
+          >
+            <option value="">Todas las tiendas</option>
+            {misTiendas.map((t) => (
+              <option key={t.id_tienda} value={t.id_tienda}>
+                {t.nombre_tienda}
+              </option>
+            ))}
+          </Form.Select>
+        )}
 
-      {role === "vendedor" && misTiendas.length > 1 && (
-        <Form.Select
-          className="mb-3"
-          value={filtroTienda}
-          onChange={(e) => setFiltroTienda(e.target.value)}
-          style={{
-            backgroundColor: "#e8f4f8",
-            border: "none",
-            borderRadius: 12,
-            maxWidth: 280,
-          }}
-        >
-          <option value="">Todas las tiendas</option>
-          {misTiendas.map((t) => (
-            <option key={t.id_tienda} value={t.id_tienda}>
-              {t.nombre_tienda}
-            </option>
-          ))}
-        </Form.Select>
-      )}
+        {textoBusqueda.trim() !== "" && productosFiltrados.length === 0 && (
+          <Alert variant="warning" className="mt-3">
+            No se encontraron productos que coincidan con la búsqueda.
+          </Alert>
+        )}
 
-      {textoBusqueda.trim() !== "" && productosFiltrados.length === 0 && (
-        <Alert variant="warning" className="mt-3">
-          No se encontraron productos que coincidan con la búsqueda.
-        </Alert>
-      )}
+        <br />
 
-      <br />
+        <ModalRegistroProducto
+          mostrarModal={mostrarModalRegistro}
+          setMostrarModal={setMostrarModalRegistro}
+          nuevoProducto={nuevoProducto}
+          manejoCambioInput={manejoCambioInput}
+          manejoCambioArchivo={manejoCambioArchivo}
+          agregarProducto={agregarProducto}
+          categorias={categorias}
+          tiendas={misTiendas}
+        />
 
-      <ModalRegistroProducto
-        mostrarModal={mostrarModalRegistro}
-        setMostrarModal={setMostrarModalRegistro}
-        nuevoProducto={nuevoProducto}
-        manejoCambioInput={manejoCambioInput}
-        manejoCambioArchivo={manejoCambioArchivo}
-        agregarProducto={agregarProducto}
-        categorias={categorias}
-        tiendas={misTiendas}
-      />
+        <ModalEdicionProducto
+          mostrarModalEdicion={mostrarModalEdicion}
+          setMostrarModalEdicion={setMostrarModalEdicion}
+          productoEditar={productoEditar}
+          manejoCambioInputEdicion={manejoCambioInputEdicion}
+          manejoCambioArchivoActualizar={manejoCambioArchivoActualizar}
+          actualizarProducto={actualizarProducto}
+          categorias={categorias}
+          tiendas={misTiendas}
+        />
 
-      <ModalEdicionProducto
-        mostrarModalEdicion={mostrarModalEdicion}
-        setMostrarModalEdicion={setMostrarModalEdicion}
-        productoEditar={productoEditar}
-        manejoCambioInputEdicion={manejoCambioInputEdicion}
-        manejoCambioArchivoActualizar={manejoCambioArchivoActualizar}
-        actualizarProducto={actualizarProducto}
-        categorias={categorias}
-      />
+        <ModalEliminacionProducto
+          mostrarModal={mostrarModalEliminacion}
+          setMostrarModal={setMostrarModalEliminacion}
+          productoAEliminar={productoAEliminar}
+          eliminarProducto={eliminarProducto}
+        />
 
-      <ModalEliminacionProducto
-        mostrarModal={mostrarModalEliminacion}
-        setMostrarModal={setMostrarModalEliminacion}
-        productoAEliminar={productoAEliminar}
-        eliminarProducto={eliminarProducto}
-      />
+        <ModalDescuentoProducto
+          mostrarModal={mostrarModalDescuento}
+          setMostrarModal={setMostrarModalDescuento}
+          productoSeleccionado={productoSeleccionadoDescuento}
+          aplicarDescuento={aplicarDescuento}
+        />
 
-      <ModalDescuentoProducto
-        mostrarModal={mostrarModalDescuento}
-        setMostrarModal={setMostrarModalDescuento}
-        productoSeleccionado={productoSeleccionadoDescuento}
-        aplicarDescuento={aplicarDescuento}
-      />
+        <NotificacionOperacion
+          mostrar={toast.mostrar}
+          mensaje={toast.mensaje}
+          tipo={toast.tipo}
+          onCerrar={() => setToast({ ...toast, mostrar: false })}
+        />
 
-      <NotificacionOperacion
-        mostrar={toast.mostrar}
-        mensaje={toast.mensaje}
-        tipo={toast.tipo}
-        onCerrar={() => setToast({ ...toast, mostrar: false })}
-      />
+        {procesandoIA && (
+          <Alert
+            variant="info"
+            className="text-center mb-3 border-0 shadow-sm rounded-pill py-2"
+          >
+            <Spinner animation="grow" size="sm" variant="info" className="me-2" />
+            <span className="small fw-bold">
+              Optimizando imagen con IA (Borrando fondo y mejorando nitidez)...
+            </span>
+          </Alert>
+        )}
 
-      {procesandoIA && (
-        <Alert
-          variant="info"
-          className="text-center mb-3 border-0 shadow-sm rounded-pill py-2"
-        >
-          <Spinner animation="grow" size="sm" variant="info" className="me-2" />
-          <span className="small fw-bold">
-            Optimizando imagen con IA (Borrando fondo y mejorando nitidez)...
-          </span>
-        </Alert>
-      )}
+        {cargando ? (
+          <div className="text-center my-5">
+            <Spinner animation="border" variant="success" />
+          </div>
+        ) : (
+          <>
+            <div className="d-lg-none">
+              <div className="mt-3">
+                <TarjetasProductos
+                  productos={productosPaginados}
+                  abrirModalEdicion={abrirModalEdicion}
+                  abrirModalEliminacion={abrirModalEliminacion}
+                  abrirModalDescuento={abrirModalDescuento}
+                />
+              </div>
+            </div>
 
-      {cargando ? (
-        <div className="text-center my-5">
-          <Spinner animation="border" variant="success" />
-        </div>
-      ) : (
-        <>
-          <div className="d-lg-none">
-            <div className="mt-3">
-              <TarjetasProductos
+            <div className="d-none d-lg-block">
+              <TablaProductos
                 productos={productosPaginados}
                 abrirModalEdicion={abrirModalEdicion}
                 abrirModalEliminacion={abrirModalEliminacion}
                 abrirModalDescuento={abrirModalDescuento}
               />
             </div>
-          </div>
 
-          <div className="d-none d-lg-block">
-            <TablaProductos
-              productos={productosPaginados}
-              abrirModalEdicion={abrirModalEdicion}
-              abrirModalEliminacion={abrirModalEliminacion}
-              abrirModalDescuento={abrirModalDescuento}
-            />
-          </div>
+            {productos.length === 0 && (
+              <p className="text-center">No hay productos registrados.</p>
+            )}
+          </>
+        )}
 
-          {productos.length === 0 && (
-            <p className="text-center">No hay productos registrados.</p>
-          )}
-        </>
-      )}
-
-      <Paginacion
-        registrosPorPagina={registrosPorPagina}
-        totalRegistros={productosFiltrados.length}
-        paginaActual={paginaActual}
-        establecerPaginaActual={establecerPaginaActual}
-        establecerRegistrosPorPagina={establecerRegistrosPorPagina}
-      />
-    </Container>
+        <Paginacion
+          registrosPorPagina={registrosPorPagina}
+          totalRegistros={productosFiltrados.length}
+          paginaActual={paginaActual}
+          establecerPaginaActual={establecerPaginaActual}
+          establecerRegistrosPorPagina={establecerRegistrosPorPagina}
+        />
+      </Container>
+    </div>
   );
 };
 
