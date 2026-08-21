@@ -12,18 +12,26 @@ import RutaProtegida from "./components/rutas/RutaProtegida";
 import ChatBotAsistente from "./components/ChatBotAsistente";
 import "./App.css";
 
+
 // =========================================================
 // LAZY LOADING DE LAS VISTAS
 // =========================================================
 
 const Inicio = lazy(() => import("./views/Inicio"));
 
-/*
-  ⭐ INICIO DEL COMPRADOR
-*/
+
+// =========================================================
+// INICIO DEL COMPRADOR
+// =========================================================
+
 const InicioComprador = lazy(
   () => import("./views/InicioComprador")
 );
+
+
+// =========================================================
+// VISTAS GENERALES
+// =========================================================
 
 const Catalogo = lazy(() => import("./views/Catalogo"));
 const Categorias = lazy(() => import("./views/Categorias"));
@@ -38,15 +46,41 @@ const AdminInicio = lazy(() => import("./views/AdminInicio"));
 const Perfil = lazy(() => import("./views/Perfil"));
 const Mensajes = lazy(() => import("./views/Mensajes"));
 const Suscripcion = lazy(() => import("./views/Suscripcion"));
+
+
+// =========================================================
+// ACCESO DEMO PARA JURADOS
+// =========================================================
+
+const Demo = lazy(() => import("./views/Demo"));
+
+
+// =========================================================
+// CHECKOUT
+// =========================================================
+
 const CheckoutSuccess = lazy(
   () => import("./views/CheckoutSuccess")
 );
+
 const CheckoutCancel = lazy(
   () => import("./views/CheckoutCancel")
 );
+
+
+// =========================================================
+// ENVÍOS
+// =========================================================
+
 const GestionEnvios = lazy(
   () => import("./views/GestionEnvios")
 );
+
+
+// =========================================================
+// ADMIN
+// =========================================================
+
 const DasboardAdmin = lazy(
   () => import("./views/DasboardAdmin")
 );
@@ -57,8 +91,18 @@ const DasboardAdmin = lazy(
 // =========================================================
 
 const LoadingFallback = () => (
-  <div className="d-flex justify-content-center align-items-center vh-100">
-    <Spinner animation="border" variant="primary" />
+  <div
+    className="
+      d-flex
+      justify-content-center
+      align-items-center
+      vh-100
+    "
+  >
+    <Spinner
+      animation="border"
+      variant="primary"
+    />
   </div>
 );
 
@@ -71,7 +115,8 @@ const AppLayout = () => {
 
   const location = useLocation();
 
-  const pathname = location?.pathname || "";
+  const pathname =
+    location?.pathname || "";
 
   const currentPath = pathname
     .toLowerCase()
@@ -79,17 +124,19 @@ const AppLayout = () => {
 
 
   // =======================================================
-  // PÁGINAS DONDE NO SE MUESTRA EL ENCABEZADO
+  // PÁGINAS SIN NAVBAR
   // =======================================================
 
   const isAuthPage =
     currentPath === "/login" ||
     currentPath === "/registro" ||
     currentPath === "/seleccion-rol" ||
-    currentPath === "/suscripcion";
+    currentPath === "/suscripcion" ||
+    currentPath === "/demo";
 
 
-  const shouldShowNavbar = !isAuthPage;
+  const shouldShowNavbar =
+    !isAuthPage;
 
 
   // =======================================================
@@ -99,16 +146,18 @@ const AppLayout = () => {
   return (
     <>
 
-      {/* =====================================================
+      {/* ===================================================
           ENCABEZADO
-      ===================================================== */}
+      =================================================== */}
 
-      {shouldShowNavbar && <Encabezado />}
+      {shouldShowNavbar && (
+        <Encabezado />
+      )}
 
 
-      {/* =====================================================
+      {/* ===================================================
           CONTENIDO PRINCIPAL
-      ===================================================== */}
+      =================================================== */}
 
       <main
         className={
@@ -118,18 +167,36 @@ const AppLayout = () => {
         }
       >
 
-        <Suspense fallback={<LoadingFallback />}>
+        <Suspense
+          fallback={<LoadingFallback />}
+        >
 
           <Routes>
 
-            {/* =================================================
-                AUTENTICACIÓN
-            ================================================= */}
+
+            {/* =============================================
+                DEMO PARA JURADOS
+            ============================================= */}
+
+            <Route
+              path="/demo"
+              element={<Demo />}
+            />
+
+
+            {/* =============================================
+                LOGIN
+            ============================================= */}
 
             <Route
               path="/login"
               element={<Login />}
             />
+
+
+            {/* =============================================
+                REGISTRO
+            ============================================= */}
 
             <Route
               path="/registro"
@@ -137,9 +204,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 INICIO GENERAL
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/"
@@ -151,15 +218,17 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
-                ⭐ INICIO DEL COMPRADOR
-            ================================================= */}
+            {/* =============================================
+                INICIO COMPRADOR
+            ============================================= */}
 
             <Route
               path="/iniciocomprador"
               element={
                 <RutaProtegida
-                  rolesPermitidos={["comprador"]}
+                  rolesPermitidos={[
+                    "comprador",
+                  ]}
                 >
                   <InicioComprador />
                 </RutaProtegida>
@@ -167,9 +236,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 SELECCIÓN DE ROL
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/seleccion-rol"
@@ -181,9 +250,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 SUSCRIPCIÓN
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/suscripcion"
@@ -195,9 +264,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 CATÁLOGO
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/catalogo"
@@ -205,9 +274,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 PERFIL
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/perfil"
@@ -219,9 +288,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 MENSAJES
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/mensajes"
@@ -233,9 +302,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 PAGO - STRIPE
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/success"
@@ -245,6 +314,7 @@ const AppLayout = () => {
                 </RutaProtegida>
               }
             />
+
 
             <Route
               path="/cancel"
@@ -256,10 +326,10 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 PRODUCTOS
                 ADMIN + VENDEDOR
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/productos"
@@ -276,37 +346,54 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
+                TIENDAS
                 SOLO VENDEDOR
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/tiendas"
               element={
                 <RutaProtegida
-                  rolesPermitidos={["vendedor"]}
+                  rolesPermitidos={[
+                    "vendedor",
+                  ]}
                 >
                   <Tiendas />
                 </RutaProtegida>
               }
             />
 
+
+            {/* =============================================
+                VENDEDOR
+            ============================================= */}
+
             <Route
               path="/vendedor"
               element={
                 <RutaProtegida
-                  rolesPermitidos={["vendedor"]}
+                  rolesPermitidos={[
+                    "vendedor",
+                  ]}
                 >
                   <Vendedor />
                 </RutaProtegida>
               }
             />
 
+
+            {/* =============================================
+                ENVÍOS
+            ============================================= */}
+
             <Route
               path="/envios"
               element={
                 <RutaProtegida
-                  rolesPermitidos={["vendedor"]}
+                  rolesPermitidos={[
+                    "vendedor",
+                  ]}
                 >
                   <GestionEnvios />
                 </RutaProtegida>
@@ -314,9 +401,9 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 ADMINISTRADOR
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="/admin-inicio"
@@ -327,6 +414,7 @@ const AppLayout = () => {
               }
             />
 
+
             <Route
               path="/dasboard-admin"
               element={
@@ -335,6 +423,11 @@ const AppLayout = () => {
                 </RutaProtegida>
               }
             />
+
+
+            {/* =============================================
+                CATEGORÍAS
+            ============================================= */}
 
             <Route
               path="/categorias"
@@ -346,14 +439,15 @@ const AppLayout = () => {
             />
 
 
-            {/* =================================================
+            {/* =============================================
                 404
-            ================================================= */}
+            ============================================= */}
 
             <Route
               path="*"
               element={<Pagina404 />}
             />
+
 
           </Routes>
 
@@ -362,9 +456,9 @@ const AppLayout = () => {
       </main>
 
 
-      {/* =====================================================
+      {/* ===================================================
           CHATBOT
-      ===================================================== */}
+      =================================================== */}
 
       <ChatBotAsistente />
 
