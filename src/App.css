@@ -11308,3 +11308,258 @@ body {
   background: #d0dbe0;
   border-radius: 10px;
 }
+
+/*Cambios en Login y Registro*/
+/* ============================================================
+   LOGIN / REGISTRO - AJUSTE FINAL SOLO MOVIL
+   ============================================================ */
+
+@media (max-width: 991px) {
+
+  /* ----------------------------------------------------------
+     Página completa
+     ---------------------------------------------------------- */
+
+  .auth-page {
+    width: 100% !important;
+
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+
+    background: #ffffff !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     Contenedor principal
+     Elimina cualquier separación superior heredada
+     ---------------------------------------------------------- */
+
+  .auth-shell {
+    width: 100% !important;
+    max-width: none !important;
+
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    border-radius: 0 !important;
+    overflow: hidden !important;
+
+    background: #ffffff !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     HERO DE DESKTOP
+     No debe ocupar espacio en móvil
+     ---------------------------------------------------------- */
+
+  .auth-hero {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     NAVBAR MOVIL
+     Pegado a la parte superior
+     ---------------------------------------------------------- */
+
+  .auth-mobile-navbar {
+    display: block !important;
+
+    width: 100% !important;
+    max-width: none !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+
+    flex-shrink: 0 !important;
+
+    background:
+      linear-gradient(
+        145deg,
+        #F8D6D6 0%,
+        #EEDCE6 30%,
+        #D3E9F1 65%,
+        #A9EEFF 100%
+      ) !important;
+  }
+
+
+  /* Contenido interno del navbar */
+
+  .auth-mobile-navbar .navbar-content {
+    width: 100% !important;
+
+    margin: 0 !important;
+
+    /*
+      Si quieres dejarlo todavía más arriba,
+      cambia el primer 6px por 2px.
+    */
+    padding: 6px 16px 7px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+
+  /* Logo */
+
+  .auth-mobile-navbar .navbar-logo {
+    width: auto !important;
+    height: 46px !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    object-fit: contain !important;
+  }
+
+
+  /* Eslogan */
+
+  .auth-mobile-navbar .navbar-tagline {
+    margin: -2px 0 0 0 !important;
+    padding: 0 !important;
+
+    font-size: 0.58rem !important;
+    letter-spacing: 1.25px !important;
+
+    line-height: 1.2 !important;
+
+    color: #155666 !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     ZONA DEL FORMULARIO
+
+     Aquí está el margen que quieres entre navbar y login.
+     ---------------------------------------------------------- */
+
+  .auth-sheet {
+    width: 100% !important;
+
+    flex: 1 !important;
+
+    /*
+       22px = distancia entre navbar y tarjeta.
+       Puedes jugar con:
+       18px -> más cerca
+       22px -> recomendado
+       28px -> más separado
+    */
+    padding: 22px 16px 30px !important;
+
+    margin: 0 !important;
+
+    background: #ffffff !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: center !important;
+    justify-content: flex-start !important;
+
+    overflow-y: auto !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     Wrapper del formulario
+     ---------------------------------------------------------- */
+
+  .auth-sheet-inner {
+    width: 100% !important;
+    max-width: 440px !important;
+
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     Tarjeta Login / Registro
+     ---------------------------------------------------------- */
+
+  .auth-card {
+    width: 100% !important;
+
+    margin: 0 !important;
+
+    padding: 26px 22px !important;
+
+    border-radius: 26px !important;
+
+    background: rgba(255, 255, 255, 0.72) !important;
+
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter:
+      blur(20px) saturate(180%) !important;
+
+    border:
+      1px solid rgba(255, 255, 255, 0.7) !important;
+
+    box-shadow:
+      0 12px 32px rgba(19, 131, 140, 0.16),
+      0 5px 14px rgba(0, 0, 0, 0.07) !important;
+  }
+}
+
+
+/* ============================================================
+   TELEFONOS PEQUEÑOS
+   ============================================================ */
+
+@media (max-width: 480px) {
+
+  .auth-mobile-navbar .navbar-content {
+    padding: 4px 14px 6px !important;
+  }
+
+  .auth-mobile-navbar .navbar-logo {
+    height: 42px !important;
+  }
+
+  .auth-mobile-navbar .navbar-tagline {
+    font-size: 0.54rem !important;
+    letter-spacing: 1.1px !important;
+  }
+
+  .auth-sheet {
+    padding:
+      20px
+      12px
+      calc(24px + env(safe-area-inset-bottom))
+      !important;
+  }
+
+  .auth-card {
+    padding: 24px 18px !important;
+    border-radius: 24px !important;
+  }
+}
