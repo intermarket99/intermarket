@@ -10788,7 +10788,9 @@ body {
   }
 }
 
-/* --- NAVBAR MÓVIL (RECTANGULAR - PEGADO ARRIBA) --- */
+/* ============================================================
+   NAVBAR MÓVIL — PEGADO AL BORDE SUPERIOR
+   ============================================================ */
 .auth-mobile-navbar {
   display: none;
   width: 100%;
@@ -10797,6 +10799,7 @@ body {
   margin: 0 !important;
   position: relative;
   flex-shrink: 0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 @media (max-width: 991px) {
@@ -10809,8 +10812,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 0px 20px 6px 20px !important;
-  /* ← PADDING SUPERIOR 0 - PEGADO ARRIBA */
+  padding: 8px 20px 4px 20px !important;  /* ← 8px de padding superior (pegado arriba con un pequeño respiro) */
   width: 100%;
 }
 
@@ -10827,14 +10829,14 @@ body {
   text-transform: uppercase;
   color: #155666;
   opacity: 0.8;
-  margin-top: 0px;
-  margin-bottom: 4px;
+  margin-top: 2px;
+  margin-bottom: 2px;
   margin-left: 0px;
 }
 
 @media (max-width: 480px) {
   .auth-mobile-navbar .navbar-content {
-    padding: 0px 14px 4px 14px !important;
+    padding: 6px 14px 2px 14px !important;
   }
   .auth-mobile-navbar .navbar-logo {
     height: 42px;
@@ -10845,12 +10847,13 @@ body {
   }
 }
 
-/* --- Form Sheet --- */
+/* ============================================================
+   FORM SHEET — MARGEN ENTRE NAVBAR Y FORMULARIO
+   ============================================================ */
 .auth-sheet {
   flex: 1;
   background: #ffffff;
-  padding: 18px 20px 30px !important;
-  /* ← PADDING SUPERIOR 18px (margen entre nav y formulario) */
+  padding: 28px 20px 30px !important;  /* ← 28px de margen entre nav y formulario */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10860,7 +10863,7 @@ body {
 
 @media (max-width: 991px) {
   .auth-sheet {
-    padding: 18px 16px 24px !important;
+    padding: 28px 16px 24px !important;  /* ← 28px de margen en móvil también */
     align-items: flex-start;
     justify-content: flex-start;
     flex: 1;
@@ -10869,7 +10872,7 @@ body {
 
 @media (max-width: 480px) {
   .auth-sheet {
-    padding: 15px 12px 20px !important;
+    padding: 24px 12px 20px !important;
   }
 }
 
@@ -10895,7 +10898,9 @@ body {
   }
 }
 
-/* --- CARD (con efecto glass) --- */
+/* ============================================================
+   CARD (con efecto glass)
+   ============================================================ */
 .auth-card {
   background: rgba(255, 255, 255, 0.45) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
@@ -10987,7 +10992,9 @@ body {
   }
 }
 
-/* --- Inputs (Liquid Glass) --- */
+/* ============================================================
+   INPUTS (Liquid Glass)
+   ============================================================ */
 .unique-input-group {
   background: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(12px) saturate(160%);
@@ -11050,7 +11057,9 @@ body {
   color: #13838C !important;
 }
 
-/* --- Fila "Recordarme / Olvidaste" --- */
+/* ============================================================
+   FILA "Recordarme / Olvidaste"
+   ============================================================ */
 .auth-remember-row {
   display: flex;
   align-items: center;
@@ -11086,7 +11095,9 @@ body {
   text-decoration: underline;
 }
 
-/* --- Botón principal --- */
+/* ============================================================
+   BOTÓN PRINCIPAL
+   ============================================================ */
 .unique-login-btn {
   position: relative;
   overflow: hidden;
@@ -11140,7 +11151,9 @@ body {
   }
 }
 
-/* --- Separador "Or" --- */
+/* ============================================================
+   SEPARADOR "Or"
+   ============================================================ */
 .auth-divider {
   display: flex;
   align-items: center;
@@ -11159,7 +11172,9 @@ body {
   opacity: 1;
 }
 
-/* --- Botones OAuth --- */
+/* ============================================================
+   BOTONES OAUTH
+   ============================================================ */
 .auth-oauth-btn {
   width: 100%;
   min-height: 46px;
@@ -11215,7 +11230,9 @@ body {
   }
 }
 
-/* --- Footer --- */
+/* ============================================================
+   FOOTER
+   ============================================================ */
 .auth-sheet-footer {
   margin-top: 16px;
   text-align: center;
@@ -11238,7 +11255,9 @@ body {
   text-decoration: underline;
 }
 
-/* --- Alertas --- */
+/* ============================================================
+   ALERTAS
+   ============================================================ */
 .auth-alert {
   border-radius: 14px !important;
   padding: 8px 12px !important;
@@ -11257,7 +11276,9 @@ body {
   border-left-color: #22c55e !important;
 }
 
-/* --- Spinner --- */
+/* ============================================================
+   SPINNER
+   ============================================================ */
 .auth-spinner {
   display: inline-block;
   width: 16px;
@@ -11272,7 +11293,9 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* --- Scroll suave para el sheet --- */
+/* ============================================================
+   SCROLL SMOOTH PARA EL SHEET
+   ============================================================ */
 .auth-sheet::-webkit-scrollbar {
   width: 4px;
 }
