@@ -10301,7 +10301,7 @@ body {
 @media (max-width: 991px) {
   /* NAVBAR - SUBIR MÁS ARRIBA (padding superior 0px) */
   .auth-mobile-navbar .navbar-content {
-    padding: 0px 16px 6px 16px !important;
+    padding: 40px 16px 6px 16px !important;
     /* ← CAMBIADO: 0px para que quede pegado arriba */
   }
 
@@ -10313,7 +10313,7 @@ body {
 
   /* REGISTRO - mismo ajuste */
   .auth-registro .auth-sheet {
-    padding: 20px 16px 30px !important;
+    padding: 40px 16px 30px !important;
   }
 
   .auth-registro .auth-mobile-navbar .navbar-content {
