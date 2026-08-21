@@ -11563,3 +11563,54 @@ body {
     border-radius: 24px !important;
   }
 }
+@media (max-width: 991px) {
+  body:has(.auth-page) {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+}
+
+/* ============================================================
+   LOGIN / REGISTRO - AJUSTE VISUAL FINAL MOVIL
+   ============================================================ */
+
+@media (max-width: 991px) {
+
+  /* NAV: mantener arriba y aprovechar todo el ancho */
+  .auth-mobile-navbar {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .auth-mobile-navbar .navbar-content {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Separación entre NAV y Login / Registro */
+  .auth-sheet {
+    padding-top: 18px !important;
+  }
+}
+
+/* ============================================================
+   AJUSTE FINAL LOGIN / REGISTRO - MOVIL
+   ============================================================ */
+
+@media (max-width: 991px) {
+
+  /* Un poquito más ancho el navbar */
+  .auth-mobile-navbar {
+    width: calc(100% + 8px) !important;
+    max-width: none !important;
+    margin-left: -4px !important;
+    margin-right: -4px !important;
+  }
+
+  /* Un poquito más de separación entre navbar y formulario */
+  .auth-sheet {
+    padding-top: 40px !important;
+  }
+}
