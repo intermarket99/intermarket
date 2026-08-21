@@ -10293,3 +10293,63 @@ body {
     margin: 42px auto 0 !important;
   }
 }
+
+/* ============================================================
+   AJUSTES FINALES: NAVBAR MÁS ARRIBA - MÁS MARGEN
+   ============================================================ */
+
+@media (max-width: 991px) {
+  /* NAVBAR - SUBIR MÁS ARRIBA (padding superior 0px) */
+  .auth-mobile-navbar .navbar-content {
+    padding: 0px 16px 6px 16px !important;
+    /* ← CAMBIADO: 0px para que quede pegado arriba */
+  }
+
+  /* SHEET - MÁS MARGEN ENTRE NAVBAR Y FORMULARIO */
+  .auth-sheet {
+    padding: 20px 16px 30px !important;
+    /* ← AUMENTADO: más margen entre nav y formulario */
+  }
+
+  /* REGISTRO - mismo ajuste */
+  .auth-registro .auth-sheet {
+    padding: 20px 16px 30px !important;
+  }
+
+  .auth-registro .auth-mobile-navbar .navbar-content {
+    padding: 0px 16px 6px 16px !important;
+  }
+}
+
+/* --- MÓVILES MUY PEQUEÑOS --- */
+@media (max-width: 480px) {
+  .auth-mobile-navbar .navbar-content {
+    padding: 0px 12px 4px 12px !important;
+    /* ← CAMBIADO: 0px para que quede pegado arriba */
+  }
+
+  .auth-sheet {
+    padding: 18px 12px 24px !important;
+    /* ← AUMENTADO: más margen entre nav y formulario */
+  }
+
+  .auth-registro .auth-sheet {
+    padding: 18px 12px 24px !important;
+  }
+
+  .auth-registro .auth-mobile-navbar .navbar-content {
+    padding: 0px 12px 4px 12px !important;
+  }
+}
+
+/* --- TABLETS PEQUEÑAS --- */
+@media (min-width: 481px) and (max-width: 991px) {
+  .auth-sheet {
+    padding: 24px 32px 32px !important;
+    /* ← AUMENTADO: más margen entre nav y formulario */
+  }
+
+  .auth-registro .auth-sheet {
+    padding: 24px 32px 32px !important;
+  }
+}
