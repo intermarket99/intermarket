@@ -9840,3 +9840,456 @@ body {
     padding-top: 0 !important;
   }
 }
+
+/* ============================================================
+   NAVBAR AL 92% - CASI ARRIBA (CON PEQUEÑO ESPACIO)
+   ============================================================ */
+
+/* --- Reset completo para móvil --- */
+@media (max-width: 991px) {
+  .auth-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auth-shell {
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    min-height: 100vh;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* ========================================================= */
+  /* NAVBAR - AL 92% (casi arriba) */
+  /* ========================================================= */
+  .auth-mobile-navbar {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: linear-gradient(145deg, #F8D6D6 0%, #EEDCE6 30%, #D3E9F1 65%, #A9EEFF 100%) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: relative;
+    top: 0;
+    left: 0;
+    right: 0;
+    flex-shrink: 0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+  }
+
+  /* Contenido del navbar - padding superior 1px (92% - casi arriba) */
+  .auth-mobile-navbar .navbar-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1px 16px 6px 16px !important;
+    /* ← PADDING SUPERIOR 1px (92% - casi arriba) */
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .auth-mobile-navbar .navbar-logo {
+    height: 51px;
+    width: auto;
+    margin: 0;
+  }
+
+  .auth-mobile-navbar .navbar-tagline {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 0.61rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #155666;
+    opacity: 0.8;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ========================================================= */
+  /* SHEET - MARGEN ENTRE NAVBAR Y FORMULARIO */
+  /* ========================================================= */
+  .auth-sheet {
+    padding: 4px 16px 30px !important;
+    flex: 1;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .auth-sheet-inner {
+    max-width: 100%;
+    padding: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ========================================================= */
+  /* CARD - FORMULARIO SE QUEDA IGUAL */
+  /* ========================================================= */
+  .auth-card {
+    padding: 26px 20px 30px !important;
+    border-radius: 24px !important;
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.7) !important;
+    box-shadow:
+      0 8px 32px rgba(19, 131, 140, 0.12),
+      0 4px 16px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+    width: 100%;
+    max-width: 420px;
+    margin: 35px auto 0 !important;
+    /* ← FORMULARIO SE QUEDA IGUAL */
+  }
+
+  .auth-card-title {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .auth-card-subtitle {
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  /* INPUTS */
+  .unique-input-group {
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+    padding: 2px 4px;
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1.5px solid rgba(19, 131, 140, 0.12) !important;
+  }
+
+  .unique-input-group .form-control {
+    padding: 14px 12px !important;
+    font-size: 0.95rem !important;
+    min-height: 52px;
+  }
+
+  .unique-input-group .input-group-text {
+    padding: 0 12px !important;
+    font-size: 1.1rem !important;
+  }
+
+  .unique-input-group .input-group-text i {
+    font-size: 1.15rem;
+  }
+
+  /* BOTÓN PRINCIPAL */
+  .unique-login-btn {
+    padding: 14px 20px !important;
+    font-size: 1rem !important;
+    border-radius: 100px !important;
+    min-height: 52px;
+    margin-top: 4px;
+  }
+
+  /* BOTONES OAUTH */
+  .auth-oauth-btn {
+    min-height: 46px;
+    font-size: 0.85rem !important;
+    border-radius: 100px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1.5px solid rgba(19, 131, 140, 0.12) !important;
+  }
+
+  .auth-oauth-btn i {
+    font-size: 1.15rem;
+  }
+
+  /* SEPARADOR */
+  .auth-divider {
+    margin: 18px 0 16px;
+    gap: 12px;
+    font-size: 0.78rem;
+  }
+
+  .auth-divider hr {
+    border-top-width: 1.5px;
+  }
+
+  /* FILA "Recordarme" */
+  .auth-remember-row {
+    margin: 8px 0 16px;
+    font-size: 0.85rem;
+  }
+
+  .auth-remember-check input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+  }
+
+  /* FOOTER */
+  .auth-sheet-footer {
+    margin-top: 20px;
+    font-size: 0.88rem;
+    padding-top: 12px;
+    text-align: center;
+  }
+}
+
+/* --- MÓVILES MUY PEQUEÑOS --- */
+@media (max-width: 480px) {
+  .auth-mobile-navbar .navbar-content {
+    padding: 25px 12px 4px 12px !important;
+    /* ← PADDING SUPERIOR 0.5px (92% en móvil pequeño) */
+  }
+
+  .auth-mobile-navbar .navbar-logo {
+    height: 43px;
+  }
+
+  .auth-mobile-navbar .navbar-tagline {
+    font-size: 0.55rem;
+    letter-spacing: 1.2px;
+  }
+
+  .auth-sheet {
+    padding: 50px 12px 24px !important;
+  }
+
+  .auth-card {
+    padding: 18px 14px 22px !important;
+    border-radius: 20px !important;
+    margin: 30px auto 0 !important;
+    /* ← FORMULARIO SE QUEDA IGUAL */
+  }
+
+  .auth-card-title {
+    font-size: 1.3rem;
+  }
+
+  .auth-card-subtitle {
+    font-size: 0.8rem;
+    margin-bottom: 16px;
+  }
+
+  .unique-input-group .form-control {
+    padding: 12px 10px !important;
+    font-size: 0.9rem !important;
+    min-height: 46px;
+  }
+
+  .unique-login-btn {
+    padding: 12px 16px !important;
+    font-size: 0.92rem !important;
+    min-height: 46px;
+  }
+
+  .auth-oauth-btn {
+    min-height: 42px;
+    font-size: 0.78rem !important;
+    padding: 10px 14px !important;
+  }
+
+  .auth-divider {
+    margin: 14px 0 12px;
+    font-size: 0.72rem;
+  }
+
+  .auth-sheet-footer {
+    margin-top: 14px;
+    font-size: 0.82rem;
+  }
+}
+
+/* --- TABLETS PEQUEÑAS --- */
+@media (min-width: 481px) and (max-width: 991px) {
+  .auth-sheet {
+    padding: 6px 32px 32px !important;
+  }
+
+  .auth-card {
+    padding: 32px 28px 36px !important;
+    max-width: 440px;
+    margin: 42px auto 0 !important;
+    /* ← FORMULARIO SE QUEDA IGUAL */
+  }
+
+  .auth-mobile-navbar .navbar-logo {
+    height: 55px;
+  }
+
+  .auth-mobile-navbar .navbar-tagline {
+    font-size: 0.66rem;
+  }
+}
+
+/* ============================================================
+   REGISTRO - MISMO ESTILO QUE LOGIN
+   ============================================================ */
+
+@media (max-width: 991px) {
+  .auth-registro .auth-sheet {
+    padding: 12px 16px 30px !important;
+  }
+
+  .auth-registro .auth-mobile-navbar .navbar-content {
+    padding: 1px 16px 6px 16px !important;
+  }
+
+  .auth-registro .auth-card {
+    padding: 26px 20px 30px !important;
+    border-radius: 24px !important;
+    margin: 35px auto 0 !important;
+    max-width: 420px;
+    width: 100%;
+  }
+
+  .auth-registro .auth-card-title {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .auth-registro .auth-card-subtitle {
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .auth-registro .unique-input-group {
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+    padding: 2px 4px;
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1.5px solid rgba(19, 131, 140, 0.12) !important;
+  }
+
+  .auth-registro .unique-input-group .form-control {
+    padding: 14px 12px !important;
+    font-size: 0.95rem !important;
+    min-height: 52px;
+  }
+
+  .auth-registro .unique-input-group .input-group-text {
+    padding: 0 12px !important;
+    font-size: 1.1rem !important;
+  }
+
+  .auth-registro .unique-login-btn {
+    padding: 14px 20px !important;
+    font-size: 1rem !important;
+    border-radius: 100px !important;
+    min-height: 52px;
+    margin-top: 4px;
+  }
+
+  .auth-registro .auth-oauth-btn {
+    min-height: 46px;
+    font-size: 0.85rem !important;
+    border-radius: 100px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1.5px solid rgba(19, 131, 140, 0.12) !important;
+  }
+
+  .auth-registro .auth-divider {
+    margin: 18px 0 16px;
+    gap: 12px;
+    font-size: 0.78rem;
+  }
+
+  .auth-registro .auth-remember-row {
+    margin: 8px 0 16px;
+    font-size: 0.85rem;
+  }
+
+  .auth-registro .auth-sheet-footer {
+    margin-top: 19px;
+    font-size: 0.88rem;
+    padding-top: 12px;
+    text-align: center;
+  }
+}
+
+/* --- MÓVILES MUY PEQUEÑOS --- */
+@media (max-width: 480px) {
+  .auth-registro .auth-sheet {
+    padding: 25px 12px 24px !important;
+  }
+
+  .auth-registro .auth-mobile-navbar .navbar-content {
+    padding: 50px 12px 4px 12px !important;
+  }
+
+  .auth-registro .auth-card {
+    padding: 18px 14px 22px !important;
+    border-radius: 20px !important;
+    margin: 30px auto 0 !important;
+  }
+
+  .auth-registro .auth-card-title {
+    font-size: 1.3rem;
+  }
+
+  .auth-registro .auth-card-subtitle {
+    font-size: 0.8rem;
+    margin-bottom: 16px;
+  }
+
+  .auth-registro .unique-input-group .form-control {
+    padding: 12px 10px !important;
+    font-size: 0.9rem !important;
+    min-height: 46px;
+  }
+
+  .auth-registro .unique-login-btn {
+    padding: 12px 16px !important;
+    font-size: 0.92rem !important;
+    min-height: 46px;
+  }
+
+  .auth-registro .auth-oauth-btn {
+    min-height: 42px;
+    font-size: 0.78rem !important;
+    padding: 10px 14px !important;
+  }
+
+  .auth-registro .auth-divider {
+    margin: 14px 0 12px;
+    font-size: 0.72rem;
+  }
+
+  .auth-registro .auth-sheet-footer {
+    margin-top: 14px;
+    font-size: 0.82rem;
+  }
+}
+
+/* --- TABLETS PEQUEÑAS --- */
+@media (min-width: 481px) and (max-width: 991px) {
+  .auth-registro .auth-sheet {
+    padding: 14px 32px 32px !important;
+  }
+
+  .auth-registro .auth-card {
+    padding: 32px 28px 36px !important;
+    max-width: 440px;
+    margin: 42px auto 0 !important;
+  }
+}
